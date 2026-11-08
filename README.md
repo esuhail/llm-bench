@@ -1,6 +1,8 @@
 [![tests](https://github.com/esuhail/llm-bench/actions/workflows/tests.yml/badge.svg)](https://github.com/esuhail/llm-bench/actions/workflows/tests.yml)
 # LLM Bench
 
+[![tests](https://github.com/esuhail/llm-bench/actions/workflows/tests.yml/badge.svg)](https://github.com/esuhail/llm-bench/actions/workflows/tests.yml)
+
 Check which local AI models your GPU can run, and how fast, before downloading them.
 
 **Live site: https://llm-bench.onrender.com** (free hosting, so the first load after a quiet period can take about a minute)
