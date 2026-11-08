@@ -56,9 +56,15 @@ Each model answers 3 prompts, 3 times each, with identical settings. A few thing
 | Long answers hit the context limit | Fixed `num_ctx` and an output cap |
 | One model was ~4% slower because of its `presence_penalty` default | Same sampling settings for every model |
 
+## Hosting
+
+The public site runs on Render's free tier with a free Neon Postgres database (`render.yaml` has the config). Locally, results go to a SQLite file instead. Locally run copies can share results with the public site, which improves the estimates for everyone.
+
+The free tier sleeps when idle, so the first visit after a while can take about a minute to load.
+
 ## Stack
 
-Python, FastAPI, SQLite and plain JavaScript (no build step).
+Python, FastAPI, SQLite or Postgres, and plain JavaScript (no build step).
 
 ```
 bench.py            benchmark logic (CLI + used by the server)
@@ -73,7 +79,6 @@ The download and benchmark endpoints only run when the app is started locally, a
 
 ## Limitations
 
-- Results are stored locally. A shared public database is next.
 - GPU detection is Windows-only.
 - The per-token overhead is fitted on very little data so far.
 - KV cache sizes are estimated from model size, not each model's architecture.

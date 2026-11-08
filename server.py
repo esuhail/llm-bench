@@ -56,38 +56,65 @@ class Submission(BaseModel):
 
 
 # One submission (a machine + run) has many model results.
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS submissions (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    received_at    INTEGER NOT NULL,
-    gpu            TEXT NOT NULL,
-    cpu            TEXT,
-    os             TEXT,
-    ollama_version TEXT
-);
-CREATE TABLE IF NOT EXISTS results (
-    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-    submission_id      INTEGER NOT NULL REFERENCES submissions(id),
-    model              TEXT NOT NULL,
-    quantization       TEXT,
-    parameter_size     TEXT,
-    avg_tokens_per_sec REAL NOT NULL,
-    avg_ttft_ms        REAL NOT NULL,
-    vram_bytes         INTEGER,
-    gpu_offload_pct    REAL,
-    runs               INTEGER NOT NULL
-);
--- Index: makes "show me everything for this GPU" fast as data grows.
-CREATE INDEX IF NOT EXISTS idx_submissions_gpu ON submissions(gpu);
-"""
+# DATABASE_URL set (the hosted site) -> Postgres. Otherwise a local SQLite file.
+DATABASE_URL = os.environ.get("DATABASE_URL")
+PG = bool(DATABASE_URL)
+ID = "SERIAL PRIMARY KEY" if PG else "INTEGER PRIMARY KEY AUTOINCREMENT"
+
+SCHEMA = [
+    f"""CREATE TABLE IF NOT EXISTS submissions (
+        id             {ID},
+        received_at    INTEGER NOT NULL,
+        gpu            TEXT NOT NULL,
+        cpu            TEXT,
+        os             TEXT,
+        ollama_version TEXT,
+        shared_at      INTEGER
+    )""",
+    f"""CREATE TABLE IF NOT EXISTS results (
+        id                 {ID},
+        submission_id      INTEGER NOT NULL REFERENCES submissions(id),
+        model              TEXT NOT NULL,
+        quantization       TEXT,
+        parameter_size     TEXT,
+        avg_tokens_per_sec REAL NOT NULL,
+        avg_ttft_ms        REAL NOT NULL,
+        vram_bytes         BIGINT,
+        gpu_offload_pct    REAL,
+        runs               INTEGER NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_submissions_gpu ON submissions(gpu)",
+]
+
+
+class DB:
+    """Small wrapper so the rest of the code writes one SQL dialect (? placeholders)."""
+
+    def __init__(self, conn):
+        self.conn = conn
+
+    def execute(self, sql: str, params=()):
+        if PG:
+            sql = sql.replace("?", "%s")
+        cur = self.conn.cursor()
+        cur.execute(sql, params)
+        return cur
+
+    def all(self, sql: str, params=()) -> list[dict]:
+        return [dict(r) for r in self.execute(sql, params).fetchall()]
 
 
 @contextmanager
 def db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    if PG:
+        import psycopg
+        from psycopg.rows import dict_row
+        conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
     try:
-        yield conn
+        yield DB(conn)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -97,56 +124,88 @@ def db():
 
 
 with db() as conn:
-    conn.executescript(SCHEMA)
+    for stmt in SCHEMA:
+        conn.execute(stmt)
     # migration for databases created before this column existed
-    cols = {row["name"] for row in conn.execute("PRAGMA table_info(results)")}
-    if "gpu_offload_pct" not in cols:
-        conn.execute("ALTER TABLE results ADD COLUMN gpu_offload_pct REAL")
+    if PG:
+        conn.execute("ALTER TABLE results ADD COLUMN IF NOT EXISTS gpu_offload_pct REAL")
+        conn.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS shared_at INTEGER")
+    else:
+        for table, col, kind in [("results", "gpu_offload_pct", "REAL"), ("submissions", "shared_at", "INTEGER")]:
+            if col not in {r["name"] for r in conn.all(f"PRAGMA table_info({table})")}:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {kind}")
+
+
+def save_submission(sub: Submission) -> int:
+    with db() as conn:
+        sid = conn.execute(
+            "INSERT INTO submissions (received_at, gpu, cpu, os, ollama_version) "
+            "VALUES (?, ?, ?, ?, ?) RETURNING id",
+            (int(time.time()), sub.gpu.strip(), sub.cpu, sub.os, sub.ollama_version),
+        ).fetchone()
+        sid = sid["id"] if isinstance(sid, dict) else sid[0]
+        for r in sub.results:
+            conn.execute(
+                "INSERT INTO results (submission_id, model, quantization, parameter_size, "
+                "avg_tokens_per_sec, avg_ttft_ms, vram_bytes, gpu_offload_pct, runs) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (sid, r.model, r.quantization, r.parameter_size,
+                 r.avg_tokens_per_sec, r.avg_ttft_ms, r.vram_bytes, r.gpu_offload_pct, r.runs),
+            )
+    return sid
+
+
+# Uploads per IP per hour on the public site. In memory, which is fine for one instance.
+UPLOAD_LIMIT = 20
+_uploads: dict[str, list[float]] = {}
+
+
+def client_ip(request: Request) -> str:
+    # behind a host's proxy the real address is the first X-Forwarded-For entry
+    fwd = request.headers.get("x-forwarded-for")
+    return fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "?")
+
+
+def check_rate_limit(request: Request) -> None:
+    now = time.time()
+    ip = client_ip(request)
+    recent = [t for t in _uploads.get(ip, []) if now - t < 3600]
+    if len(recent) >= UPLOAD_LIMIT:
+        raise HTTPException(429, "Too many uploads from this address. Try again in an hour.")
+    recent.append(now)
+    _uploads[ip] = recent
 
 
 @app.post("/api/submissions", status_code=201)
-def create_submission(sub: Submission):
-    with db() as conn:
-        cur = conn.execute(
-            "INSERT INTO submissions (received_at, gpu, cpu, os, ollama_version) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (int(time.time()), sub.gpu.strip(), sub.cpu, sub.os, sub.ollama_version),
-        )
-        sid = cur.lastrowid
-        conn.executemany(
-            "INSERT INTO results (submission_id, model, quantization, parameter_size, "
-            "avg_tokens_per_sec, avg_ttft_ms, vram_bytes, gpu_offload_pct, runs) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                (sid, r.model, r.quantization, r.parameter_size,
-                 r.avg_tokens_per_sec, r.avg_ttft_ms, r.vram_bytes, r.gpu_offload_pct, r.runs)
-                for r in sub.results
-            ],
-        )
-    return {"id": sid}
+def create_submission(sub: Submission, request: Request):
+    check_rate_limit(request)
+    return {"id": save_submission(sub)}
 
 
 @app.get("/api/results")
 def list_results(gpu: str | None = None):
     """One row per (GPU, model, quantization), averaged across submissions."""
     sql = """
-        SELECT s.gpu, r.model, r.quantization, r.parameter_size,
-               ROUND(AVG(r.avg_tokens_per_sec), 1) AS tokens_per_sec,
-               ROUND(AVG(r.avg_ttft_ms), 0)        AS ttft_ms,
-               MAX(r.vram_bytes)                   AS vram_bytes,
-               MIN(r.gpu_offload_pct)              AS gpu_offload_pct,
-               COUNT(*)                            AS submissions
+        SELECT s.gpu, r.model, r.quantization,
+               MAX(r.parameter_size)    AS parameter_size,
+               AVG(r.avg_tokens_per_sec) AS tokens_per_sec,
+               AVG(r.avg_ttft_ms)        AS ttft_ms,
+               MAX(r.vram_bytes)         AS vram_bytes,
+               MIN(r.gpu_offload_pct)    AS gpu_offload_pct,
+               COUNT(*)                  AS submissions
         FROM results r JOIN submissions s ON s.id = r.submission_id
         {where}
         GROUP BY s.gpu, r.model, r.quantization
-        ORDER BY s.gpu, tokens_per_sec DESC
     """
     where, params = "", ()
     if gpu:
         where, params = "WHERE s.gpu = ?", (gpu,)
     with db() as conn:
-        rows = conn.execute(sql.format(where=where), params).fetchall()
-    return [dict(r) for r in rows]
+        rows = conn.all(sql.format(where=where), params)
+    for r in rows:  # rounding here because ROUND() differs between SQLite and Postgres
+        r["tokens_per_sec"] = round(r["tokens_per_sec"], 1)
+        r["ttft_ms"] = round(r["ttft_ms"])
+    return sorted(rows, key=lambda r: (r["gpu"], -r["tokens_per_sec"]))
 
 
 @app.get("/api/gpus")
@@ -186,6 +245,8 @@ def accuracy():
 # through the user's own Ollama. Never enabled on a public deployment.
 
 LOCAL = os.environ.get("LLM_BENCH_LOCAL") == "1"
+# public site that local installs can share results with
+COMMUNITY_URL = os.environ.get("LLM_BENCH_COMMUNITY_URL", "").rstrip("/")
 MODEL_NAME = re.compile(r"^[\w.\-/:]{1,200}$")
 JOBS: dict[str, dict] = {}
 JOBS_LOCK = threading.Lock()
@@ -226,11 +287,36 @@ def local_info():
         "gpu_catalog": match["name"] if match else None,
         "ollama_running": installed is not None,
         "installed": installed or [],
+        "community_url": COMMUNITY_URL or None,
     }
 
 
 class ModelRequest(BaseModel):
     model: str
+    share: bool = False
+
+
+def submission_payload(sid: int) -> dict:
+    """Rebuild the upload format for a stored submission."""
+    with db() as conn:
+        s = conn.all("SELECT * FROM submissions WHERE id = ?", (sid,))[0]
+        rows = conn.all("SELECT * FROM results WHERE submission_id = ?", (sid,))
+    keep = ["model", "quantization", "parameter_size", "avg_tokens_per_sec",
+            "avg_ttft_ms", "vram_bytes", "gpu_offload_pct", "runs"]
+    return {"timestamp": s["received_at"], "os": s["os"] or "", "cpu": s["cpu"] or "",
+            "gpu": s["gpu"], "ollama_version": s["ollama_version"],
+            "results": [{k: r[k] for k in keep} for r in rows]}
+
+
+def share(sid: int) -> None:
+    """Send one local submission to the public site and remember that we did."""
+    if not COMMUNITY_URL:
+        raise RuntimeError("No public site is configured.")
+    r = requests.post(f"{COMMUNITY_URL}/api/submissions", json=submission_payload(sid), timeout=90)
+    if not r.ok:
+        raise RuntimeError(f"Public site said {r.status_code}: {r.text[:200]}")
+    with db() as conn:
+        conn.execute("UPDATE submissions SET shared_at = ? WHERE id = ?", (int(time.time()), sid))
 
 
 def start_job(kind: str, model: str, work) -> dict:
@@ -305,10 +391,37 @@ def benchmark_model(req: ModelRequest, request: Request):
             job["message"] = "Loading model..." if done == 0 else f"Run {done} of {total}"
         result = bench.measure(req.model, progress)
         sub = bench.make_submission(detected_gpu() or "Unknown GPU", [result])
-        create_submission(Submission(**sub))
+        sid = save_submission(Submission(**sub))
         job["result"] = result
+        if req.share and COMMUNITY_URL:
+            job["message"] = "Sharing with the public site..."
+            try:
+                share(sid)
+                job["shared"] = True
+            except Exception as e:  # sharing is optional; keep the local result either way
+                job["shared"] = False
+                job["share_error"] = str(e)[:200]
 
     return start_job("benchmark", req.model, work)
+
+
+@app.post("/api/local/share-all")
+def share_all(request: Request):
+    """Upload every local result that hasn't been shared yet."""
+    require_local(request)
+    if not COMMUNITY_URL:
+        raise HTTPException(400, "No public site is configured.")
+    with db() as conn:
+        ids = [r["id"] for r in conn.all("SELECT id FROM submissions WHERE shared_at IS NULL")]
+    shared, errors = 0, []
+    for sid in ids:
+        try:
+            share(sid)
+            shared += 1
+        except Exception as e:
+            errors.append(str(e)[:200])
+            break  # the site is probably asleep or down; don't hammer it
+    return {"shared": shared, "remaining": len(ids) - shared, "error": errors[0] if errors else None}
 
 
 @app.get("/api/local/jobs/{job_id}")

@@ -247,6 +247,8 @@
   .intro { margin-top: 18px; color: var(--muted); font-size: 16px; max-width: 34em; padding-left: 14px; border-left: 2px solid var(--copper); }
   .intro b { color: var(--silk); }
   .topbar .btn { margin-left: 6px; }
+  .share-toggle { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; color: var(--muted); }
+  .share-toggle input { accent-color: var(--copper); }
 
   @media (max-width: 1100px) {
     .hero, .layout, .mem { grid-template-columns: 1fr; }
@@ -367,7 +369,11 @@
           <h2>Measured results</h2>
           <p class="sub" id="results-sub">Benchmarks run on real PCs.</p>
         </div>
-        <div class="filter" id="filter"></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span id="share-all-msg" class="hint"></span>
+          <button class="btn" id="share-all" hidden>Upload my earlier results</button>
+          <div class="filter" id="filter"></div>
+        </div>
       </div>
       <div id="list"></div>
     </section>
@@ -418,6 +424,7 @@ const VERDICTS = [
 const verdict = tps => VERDICTS.find(v => tps >= v.min);
 const READING_TPS = 6;
 const MAX_COMPARE = 4;
+const REPO_URL = "https://github.com/esuhail/llm-bench";
 const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const TAG_COLORS = {
   "Chat": "#9cc3ff", "Coding": "#7ee0c9", "Reasoning": "#c9a8ff", "Vision": "#f2b36b",
@@ -516,14 +523,18 @@ $("traces-lit").style.backgroundImage = traceTile("#f0b061");
 function renderStatus() {
   const L = state.local;
   if (!L.local) {
-    $("status").innerHTML = `<span><span class="led off"></span>Viewing online. Download LLM Bench to test your own PC.</span>`;
+    $("status").innerHTML = `<span>Want real numbers for your PC? <a href="${REPO_URL}/releases/latest" target="_blank" rel="noopener">Download LLM Bench</a></span>`;
     return;
   }
   const gpu = L.gpu_detected ? `<span>Detected <b>${esc(L.gpu_detected)}</b></span>` : `<span class="warn">GPU not detected; pick it below</span>`;
   const ollama = L.ollama_running
     ? `<span title="Ollama keeps downloaded models in ${esc(L.models_dir)}"><span class="led"></span>Ollama connected, <b>${L.installed.length}</b> installed</span>`
     : `<span><span class="led off"></span>Ollama isn't running. <a href="https://ollama.com/download" target="_blank" rel="noopener">Get Ollama</a></span>`;
-  $("status").innerHTML = gpu + ollama;
+  const sharing = L.community_url
+    ? `<label class="share-toggle" title="Uploads your GPU name and speeds, nothing else"><input type="checkbox" id="share-toggle" ${shareOn() ? "checked" : ""}> Share results publicly</label>`
+    : "";
+  $("status").innerHTML = gpu + ollama + sharing;
+  $("share-toggle")?.addEventListener("change", e => { shareOn(e.target.checked); });
 }
 
 function showError(e) {
@@ -540,6 +551,12 @@ function renderGpuSelect() {
     ["NVIDIA", "AMD", "Intel"].map(b => `<optgroup label="${b}">${state.gpus.filter(g => brand(g.name) === b).map(opt).join("")}</optgroup>`).join("");
 }
 // localStorage can throw (private mode etc.)
+function shareOn(value) {
+  try {
+    if (value !== undefined) localStorage.setItem("llmbench.share", value ? "1" : "0");
+    return localStorage.getItem("llmbench.share") !== "0";  // on by default
+  } catch { return false; }
+}
 const savedGpu = { get: () => { try { return localStorage.getItem("llmbench.gpu") || ""; } catch { return ""; } },
                    set: v => { try { localStorage.setItem("llmbench.gpu", v); } catch {} } };
 $("gpu-select").onchange = async e => {
@@ -677,14 +694,18 @@ function jobView(model) {
   const j = state.jobs[model];
   if (!j) return "";
   if (j.status === "error") return `<div class="job err">${esc(j.message)}</div>`;
-  if (j.status === "done") return `<div class="job">${j.kind === "pull" ? `Downloaded. ${esc(j.message)}.` : "Benchmark saved to Measured results."}</div>`;
+  if (j.status === "done") {
+    if (j.kind === "pull") return `<div class="job">Downloaded. ${esc(j.message)}.</div>`;
+    const shared = j.shared ? " and shared publicly" : j.share_error ? ` (couldn't share: ${esc(j.share_error)})` : "";
+    return `<div class="job">Benchmark saved${shared}.</div>`;
+  }
   return `<div class="job">${j.kind === "pull" ? "Downloading" : "Benchmarking"}: ${esc(j.message)} (${j.progress}%)
     <div class="meter"><div class="fill" style="width:${j.progress}%;background:var(--copper)"></div></div></div>`;
 }
 
 async function startJob(kind, model) {
   try {
-    const job = await post(`/api/local/${kind}`, { model });
+    const job = await post(`/api/local/${kind}`, { model, share: kind === "benchmark" && !!state.local.community_url && shareOn() });
     state.jobs[model] = job;
     renderPredictions();
     pollJob(model, job.id);
@@ -888,6 +909,8 @@ $("mem-model").onchange = e => { mem.model = e.target.value; updateMemory(); };
 function renderResults() {
   const data = state.results;
   $("top-share").hidden = !data.length;
+  const L = state.local;
+  $("share-all").hidden = !(L.local && L.community_url && data.length);
   const gpus = [...new Set(data.map(r => r.gpu))];
   $("results-sub").textContent = data.length
     ? `${data.reduce((n, r) => n + r.submissions, 0)} benchmark results from ${gpus.length} GPU${gpus.length > 1 ? "s" : ""}.`
@@ -1063,6 +1086,16 @@ document.querySelector(".sidebar").addEventListener("click", e => {
 });
 $("search").oninput = e => { state.query = e.target.value; state.showAll = !!state.query || state.tags.size > 0; renderPredictions(); };
 $("filter").addEventListener("click", e => { const b = e.target.closest("[data-g]"); if (b) { state.resultsFilter = b.dataset.g; renderResults(); } });
+$("share-all").onclick = async () => {
+  const b = $("share-all"), msg = $("share-all-msg");
+  b.disabled = true;
+  msg.textContent = "Uploading (the public site can take a minute to wake up)...";
+  try {
+    const r = await post("/api/local/share-all", {});
+    msg.textContent = r.error ? `Uploaded ${r.shared}. Stopped: ${r.error}` : r.shared ? `Uploaded ${r.shared} result${r.shared > 1 ? "s" : ""}.` : "Everything is already uploaded.";
+  } catch (e) { msg.textContent = e.message; }
+  b.disabled = false;
+};
 $("top-share").onclick = () => {
   const gpus = [...new Set(state.results.map(r => r.gpu))];
   const match = gpus.find(g => state.gpu && g.toUpperCase().includes(state.gpu.toUpperCase()));

@@ -10,6 +10,8 @@ import time
 import webbrowser
 
 HOST, PORT = "127.0.0.1", 8000
+# public site that local installs share results with (empty = sharing off)
+PUBLIC_SITE = ""
 URL = f"http://{HOST}:{PORT}"
 
 
@@ -99,6 +101,8 @@ def main() -> None:
     ensure_ollama()
 
     os.environ["LLM_BENCH_LOCAL"] = "1"
+    if PUBLIC_SITE:
+        os.environ.setdefault("LLM_BENCH_COMMUNITY_URL", PUBLIC_SITE)
 
     threading.Thread(target=open_when_ready, daemon=True).start()
     import uvicorn
