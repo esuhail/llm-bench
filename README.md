@@ -1,4 +1,3 @@
-[![tests](https://github.com/esuhail/llm-bench/actions/workflows/tests.yml/badge.svg)](https://github.com/esuhail/llm-bench/actions/workflows/tests.yml)
 # LLM Bench
 
 [![tests](https://github.com/esuhail/llm-bench/actions/workflows/tests.yml/badge.svg)](https://github.com/esuhail/llm-bench/actions/workflows/tests.yml)
