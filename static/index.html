@@ -141,6 +141,10 @@
   .actions-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .actions-line .actions { margin-top: 10px; }
   .actions-line .cmd { margin-top: 10px; }
+  .size-reset { font: 600 12.5px var(--body); background: none; border: 0; color: var(--copper-hi); cursor: pointer; padding: 3px 4px; text-decoration: underline; text-underline-offset: 3px; }
+  .size-reset:hover { color: var(--silk); }
+  .size-note { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .size-note b { color: var(--silk); font-weight: 600; }
   .more-tags { font-size: 12.5px; color: var(--dim); }
   .row::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0;
                  background: var(--copper); transform: scaleY(0); transition: transform .2s; }
@@ -833,14 +837,17 @@ function famRow(f) {
     const cls = comfy(s) ? "ok" : s.fits ? "tight" : "no";
     const tip = `${s.display || s.model}: needs ${s.needs_gb} GB, about ${fmt(shownSpeed(s))} tokens/sec`;
     return `<button class="size ${cls} ${s === m ? "on" : ""}" data-act="size" data-fam="${esc(f.key)}" data-m="${esc(s.model)}" title="${esc(tip)}">${esc(sizeLabel(s))}</button>`;
-  }).join("")}</div>` : "";
+  }).join("")}${m !== f.home ? `<button class="size-reset" data-act="size-reset" data-fam="${esc(f.key)}">Reset to ${esc(sizeLabel(f.home))}</button>` : ""}</div>` : "";
+  // the row stays put; say where this size would sit instead
+  const moved = m !== f.home && groupOf(m) !== groupOf(f.home);
+  const note = moved ? `<div class="size-note">This size belongs in <b>${GROUPS.find(g => g[0] === groupOf(m))[1]}</b></div>` : "";
   const jobs = f.members.map(s => jobView(s.model)).join("");
   return `
     <div class="row fam">
       <div>
         <div class="model">${esc(f.label)}</div>
         <div class="made">${m.maker ? `By ${esc(m.maker)}. ` : ""}${esc(m.desc)}${m.maker ? "." : ""}</div>
-        ${sizes}
+        ${sizes}${note}
         <div class="tags">${m.tags.slice(0, 3).map(tagPill).join("")}
           ${m.tags.length > 3 ? `<span class="more-tags" title="${esc(m.tags.slice(3).join(", "))}">+${m.tags.length - 3} more</span>` : ""}
           ${m.moe ? `<span class="spec term" title="Mixture of Experts: only part of the model works on each word, so it runs faster than its size suggests">Runs faster than its size</span>` : ""}
@@ -1268,6 +1275,7 @@ $("pred").addEventListener("click", async e => {
     case "showall": state.showAll = true; renderPredictions(); break;
     case "more": state.expanded[b.dataset.g] = true; renderPredictions(); break;
     case "size": state.famPick[b.dataset.fam] = m; renderPredictions(); break;
+    case "size-reset": delete state.famPick[b.dataset.fam]; renderPredictions(); break;
     case "compare":
       if (state.compare.has(m)) state.compare.delete(m);
       else if (state.compare.size < MAX_COMPARE) state.compare.add(m);
