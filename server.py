@@ -23,7 +23,7 @@ import bench
 import predict
 from version import code_version
 
-DB_PATH = Path(__file__).parent / "bench.db"
+DB_PATH = Path(os.environ.get("LLM_BENCH_DB") or Path(__file__).parent / "bench.db")
 app = FastAPI(title="LLM Bench")
 VERSION = code_version()
 

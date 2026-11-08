@@ -75,6 +75,14 @@ predict.py          speed and memory estimates
 run.py              launcher
 static/index.html   the site
 data/               GPU specs and model list
+tests/              pytest suite (run on every push by GitHub Actions)
+```
+
+To run the tests:
+
+```
+pip install -r requirements.txt pytest httpx
+pytest
 ```
 
 The download and benchmark endpoints only run when the app is started locally, and they reject requests from other sites. SQL is parameterized and user-supplied text is escaped.

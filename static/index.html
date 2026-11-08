@@ -136,6 +136,12 @@
   .row { position: relative; display: grid; grid-template-columns: minmax(260px, 1.35fr) minmax(170px, 1fr) minmax(200px, 1fr) 140px; gap: 28px; align-items: center;
          padding: 18px 22px; border-bottom: 1px solid var(--line); transition: background .15s; }
   .row:last-child { border-bottom: 0; }
+  .row.fam { grid-template-columns: minmax(320px, 2fr) minmax(160px, 1fr) minmax(190px, 1fr) 130px; gap: 24px; padding: 16px 22px; }
+  .row.fam .actions { margin-top: 10px; }
+  .actions-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .actions-line .actions { margin-top: 10px; }
+  .actions-line .cmd { margin-top: 10px; }
+  .more-tags { font-size: 12.5px; color: var(--dim); }
   .row::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0;
                  background: var(--copper); transform: scaleY(0); transition: transform .2s; }
   .row:hover { background: rgba(255,255,255,.025); }
@@ -179,6 +185,26 @@
   .score .kind.measured { color: var(--gold); font-weight: 600; }
   .score b { display: block; font: 750 32px/1.1 var(--display); font-stretch: 105%; }
   .score small { color: var(--dim); font-size: 13px; display: block; margin-bottom: 6px; }
+  .picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 28px; }
+  .pick { background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 16px; padding: 18px 18px 14px; box-shadow: var(--raise);
+          display: flex; flex-direction: column; gap: 10px; transition: border-color .15s; }
+  .pick:hover { border-color: var(--copper); }
+  .pick-label { font-size: 13px; font-weight: 700; color: var(--copper-hi); }
+  .pick-name { font: 750 20px/1.15 var(--display); font-stretch: 105%; }
+  .pick-why { font-size: 14px; color: var(--muted); }
+  .pick-stats { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+  .pick-stats b { color: var(--silk); font-weight: 600; }
+  .pick .actions { margin-top: auto; flex-wrap: wrap; opacity: 1; }
+  .picks-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+  .picks-head h3 { font: 700 20px var(--display); font-stretch: 108%; }
+  .picks-head span { color: var(--dim); font-size: 14px; }
+  .sizes { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+  .size { font: 600 12.5px var(--body); padding: 3px 9px; border-radius: 6px; cursor: pointer; background: transparent;
+          border: 1px solid var(--line-2); color: var(--muted); transition: border-color .15s, color .15s, background .15s; }
+  .size::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; background: var(--dim); }
+  .size.ok::before { background: var(--fast); } .size.tight::before { background: var(--ok); } .size.no::before { background: var(--slow); }
+  .size:hover { color: var(--silk); border-color: var(--copper); }
+  .size.on { background: var(--copper); border-color: var(--copper); color: #1d1206; }
   .more { width: 100%; padding: 16px; background: none; border: 0; color: var(--muted); font: 500 15px var(--body); cursor: pointer; }
   .more:hover { color: var(--copper-hi); }
   .nomatch { padding: 40px; text-align: center; color: var(--muted); }
@@ -259,7 +285,7 @@
     .topbar { flex-wrap: wrap; gap: 10px; }
     .topbar .status { order: 3; width: 100%; margin-left: 0; justify-content: flex-start; font-size: 13px; }
     #top-share { margin-left: auto; }
-    .row, #list .row { grid-template-columns: 1fr 1fr; gap: 16px; }
+    .row, #list .row, .row.fam { grid-template-columns: 1fr 1fr; gap: 16px; }
     .row > :first-child { grid-column: 1 / -1; }
     .score { text-align: left; align-items: flex-start; }
     .lane { grid-template-columns: 1fr 80px; }
@@ -486,6 +512,7 @@ const state = {
   results: [], gpus: [], local: { local: false }, acc: {}, categories: [],
   gpu: "", pred: null, compare: new Set(), jobs: {}, showAll: false,
   tags: new Set(), query: "", installedOnly: false, sort: "capable", resultsFilter: "All",
+  famPick: {}, expanded: {},
 };
 const isInstalled = name => state.local.installed?.includes(name);
 const shownSpeed = m => m.measured ?? m.tokens_per_sec;
@@ -599,6 +626,7 @@ const savedGpu = { get: () => { try { return localStorage.getItem("llmbench.gpu"
                    set: v => { try { localStorage.setItem("llmbench.gpu", v); } catch {} } };
 $("gpu-select").onchange = async e => {
   state.gpu = e.target.value; state.gpuSource = "picked"; state.compare.clear(); state.showAll = false;
+  state.famPick = {}; state.expanded = {};
   savedGpu.set(state.gpu);
   resetRace();
   await loadPredictions();
@@ -676,44 +704,146 @@ function renderSidebar() {
       ? `<button class="chip ${state.installedOnly ? "on" : ""}" data-inst="1">Installed only</button>` : "");
 }
 
+// --- families: one row per family, sizes as buttons ---
+const sizeLabel = m => { const parts = (m.display || m.model).split(" "); return parts.length > 1 ? parts[parts.length - 1] : parts[0]; };
+const familyLabel = members => members.length === 1 ? (members[0].display || members[0].model)
+  : (members[0].display || members[0].model).split(" ").slice(0, -1).join(" ");
+const comfy = m => m.fits && shownSpeed(m) >= 15;
+const byParams = (a, b) => (a.params_b || 0) - (b.params_b || 0);
+
+function defaultSize(members) {
+  // biggest size that runs comfortably, else biggest that fits, else the smallest
+  const desc = [...members].sort(byParams).reverse();
+  return desc.find(comfy) || desc.find(m => m.fits) || [...members].sort(byParams)[0];
+}
+
+function groupFamilies(models) {
+  const fams = new Map();
+  for (const m of models) {
+    const f = familyOf(m);
+    if (!fams.has(f)) fams.set(f, []);
+    fams.get(f).push(m);
+  }
+  return [...fams].map(([key, members]) => {
+    members.sort(byParams);
+    const chosen = members.find(m => m.model === state.famPick[key]) || defaultSize(members);
+    return { key, members, pick: chosen, label: familyLabel(members) };
+  });
+}
+
+// --- top picks ---
+const CODING = ["qwen3.8", "qwen3.6", "qwen3-coder", "glm-4.7-flash", "devstral", "qwen2.5-coder",
+  "deepseek-coder-v2", "codestral", "qwen3", "starcoder2", "codegemma", "codellama"];
+const IMAGES = ["qwen3.8", "gemma4", "qwen3.5", "qwen3-vl", "ministral-3", "qwen2.5vl", "gemma3",
+  "llama3.2-vision", "minicpm-v", "llava", "moondream"];
+
+function topPicks() {
+  const ms = state.pred.models.filter(m => m.in_catalog);
+  const used = new Set();
+  const best = (list, extra, minSpeed) => {
+    const rank = m => list.indexOf(familyOf(m));
+    return ms.filter(m => rank(m) >= 0 && m.fits && shownSpeed(m) >= minSpeed && extra(m) && !used.has(familyOf(m)))
+      .sort((a, b) => rank(a) - rank(b) || byParams(b, a))[0];
+  };
+  const take = (label, why, list, extra) => {
+    const m = best(list, extra, 15) || best(list, extra, 7);  // relax to "usable" on small cards
+    if (m) used.add(familyOf(m));
+    return m && { label, why, m };
+  };
+  const picks = [
+    take("Best overall", "The most capable general model that runs comfortably on your card.", RECOMMENDED, () => true),
+    take("Best for programming", "Writes, explains and fixes code.", CODING, m => m.tags.includes("Coding")),
+    take("Best for images", "Reads photos, screenshots and documents.", IMAGES, m => m.tags.includes("Vision")),
+  ];
+  const fast = ms.filter(m => RECOMMENDED.includes(familyOf(m)) && m.fits && (m.params_b || 0) >= 3 && !used.has(familyOf(m)))
+    .sort((a, b) => shownSpeed(b) - shownSpeed(a))[0];
+  if (fast) picks.push({ label: "Fastest good model", why: "Near-instant answers and still capable.", m: fast });
+  return picks.filter(Boolean);
+}
+
+function pickCard({ label, why, m }) {
+  const v = verdict(shownSpeed(m)), n = speedBars(shownSpeed(m)), measured = m.measured != null;
+  return `
+    <div class="pick">
+      <div class="pick-label">${label}</div>
+      <div>
+        <div class="pick-name">${esc(m.display || m.model)}</div>
+        <div class="made">${m.maker ? `By ${esc(m.maker)}` : ""}</div>
+      </div>
+      <div class="pick-why">${why}</div>
+      <div class="pick-stats">
+        <span>300 words in <b>${answerTime(shownSpeed(m)).replace("about ", "~")}</b></span>
+        <span class="bars" title="${n} of 5">${[1, 2, 3, 4, 5].map(i => `<i style="${i <= n ? `background:${v.color}` : ""}"></i>`).join("")}</span>
+      </div>
+      <div class="pick-stats"><span>Uses <b>${m.needs_gb} of ${state.pred.gpu.vram_gb} GB</b></span><span>${measured ? "Tested" : "Estimate"}</span></div>
+      ${actions(m)}${jobView(m.model)}
+    </div>`;
+}
+
 function renderPredictions() {
   if (!state.pred) return;
   renderSidebar();
   const p = state.pred;
   const q = state.query.trim().toLowerCase();
+  const filtering = state.tags.size > 0 || !!q || state.installedOnly;
   const visible = p.models.filter(m =>
     [...state.tags].every(t => m.tags.includes(t)) &&
     (!q || [m.model, m.display, m.desc, m.maker].join(" ").toLowerCase().includes(q)) &&
     (!state.installedOnly || isInstalled(m.model)));
-  visible.sort(SORTS[state.sort][0]);
 
-  let html = visible.length ? "" : `<div class="card"><div class="nomatch">No model is good at all of those. Remove a use or clear the search.</div></div>`;
+  const fams = groupFamilies(visible);
+  const rankScore = f => { const i = RECOMMENDED.indexOf(f.key); return i < 0 ? 100 : i; };
+  const famSorts = {
+    capable: (a, b) => rankScore(a) - rankScore(b) || byParams(b.pick, a.pick),
+    fastest: (a, b) => shownSpeed(b.pick) - shownSpeed(a.pick),
+    smallest: (a, b) => (a.pick.size_gb || 0) - (b.pick.size_gb || 0),
+  };
+  fams.sort(famSorts[state.sort]);
+
+  let html = "";
+  if (!filtering) {
+    const picks = topPicks();
+    if (picks.length) html += `<div class="picks-head"><h3>Best for your ${esc(p.gpu.name)}</h3><span>Our picks from every model below</span></div>
+      <div class="picks">${picks.map(pickCard).join("")}</div>`;
+  }
+  if (!fams.length) html += `<div class="card"><div class="nomatch">No model is good at all of those. Remove a use or clear the search.</div></div>`;
+  const PAGE = 10;
   for (const [key, title] of GROUPS) {
-    const ms = visible.filter(m => groupOf(m) === key);
-    if (!ms.length) continue;
+    const fs = fams.filter(f => groupOf(f.pick) === key);
+    if (!fs.length) continue;
     const collapsed = key === "toobig" && !state.showAll;
-    html += `<div class="card"><div class="card-head"><h3>${title}</h3><span>${ms.length} model${ms.length > 1 ? "s" : ""}</span></div>`;
-    html += collapsed
-      ? `<button class="more" data-act="showall">Show ${ms.length} models that are too big for this GPU</button>`
-      : ms.map(predRow).join("");
+    const shown = filtering || state.expanded[key] ? fs : fs.slice(0, PAGE);
+    html += `<div class="card"><div class="card-head"><h3>${title}</h3><span>${fs.length} famil${fs.length > 1 ? "ies" : "y"}</span></div>`;
+    if (collapsed) html += `<button class="more" data-act="showall">Show ${fs.length} model families that are too big for this GPU</button>`;
+    else {
+      html += shown.map(famRow).join("");
+      if (shown.length < fs.length) html += `<button class="more" data-act="more" data-g="${key}">Show ${fs.length - shown.length} more</button>`;
+    }
     html += `</div>`;
   }
   $("pred").innerHTML = html;
   renderTray();
 }
 
-function predRow(m) {
-  const shown = shownSpeed(m), v = verdict(shown), measured = m.measured != null;
+function famRow(f) {
+  const m = f.pick, shown = shownSpeed(m), v = verdict(shown), measured = m.measured != null;
+  const sizes = f.members.length > 1 ? `<div class="sizes" role="group" aria-label="Sizes">${f.members.map(s => {
+    const cls = comfy(s) ? "ok" : s.fits ? "tight" : "no";
+    const tip = `${s.display || s.model}: needs ${s.needs_gb} GB, about ${fmt(shownSpeed(s))} tokens/sec`;
+    return `<button class="size ${cls} ${s === m ? "on" : ""}" data-act="size" data-fam="${esc(f.key)}" data-m="${esc(s.model)}" title="${esc(tip)}">${esc(sizeLabel(s))}</button>`;
+  }).join("")}</div>` : "";
+  const jobs = f.members.map(s => jobView(s.model)).join("");
   return `
-    <div class="row">
+    <div class="row fam">
       <div>
-        <div class="model">${esc(m.display || m.model)}</div>
+        <div class="model">${esc(f.label)}</div>
         <div class="made">${m.maker ? `By ${esc(m.maker)}. ` : ""}${esc(m.desc)}${m.maker ? "." : ""}</div>
-        <div class="tags">${m.tags.map(tagPill).join("")}
-          <a class="cmd" href="${ollamaUrl(m.model)}" target="_blank" rel="noopener" title="Its name in Ollama; opens its page">${esc(m.model)}</a>
+        ${sizes}
+        <div class="tags">${m.tags.slice(0, 3).map(tagPill).join("")}
+          ${m.tags.length > 3 ? `<span class="more-tags" title="${esc(m.tags.slice(3).join(", "))}">+${m.tags.length - 3} more</span>` : ""}
           ${m.moe ? `<span class="spec term" title="Mixture of Experts: only part of the model works on each word, so it runs faster than its size suggests">Runs faster than its size</span>` : ""}
         </div>
-        ${actions(m)}${jobView(m.model)}
+        <div class="actions-line">${actions(m)}<a class="cmd" href="${ollamaUrl(m.model)}" target="_blank" rel="noopener" title="Its name in Ollama; opens its page">${esc(m.model)}</a></div>${jobs}
       </div>
       ${memCell(m.needs_gb, state.pred.gpu.vram_gb, m.fits)}
       ${speedCell(shown, measured)}
@@ -1134,6 +1264,8 @@ $("pred").addEventListener("click", async e => {
   const m = b.dataset.m;
   switch (b.dataset.act) {
     case "showall": state.showAll = true; renderPredictions(); break;
+    case "more": state.expanded[b.dataset.g] = true; renderPredictions(); break;
+    case "size": state.famPick[b.dataset.fam] = m; renderPredictions(); break;
     case "compare":
       if (state.compare.has(m)) state.compare.delete(m);
       else if (state.compare.size < MAX_COMPARE) state.compare.add(m);
