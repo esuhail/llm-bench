@@ -603,7 +603,11 @@ async function loadPredictions() {
   $("race-go").hidden = $("race-reset").hidden = false;
   state.pred = await api("/api/predictions?gpu=" + encodeURIComponent(state.gpu));
   const g = state.pred.gpu;
-  const note = { browser: "Detected from your browser. ", example: "Showing an example card. Pick yours above. " }[state.gpuSource] || "";
+  const note = {
+    browser: "Detected from your browser. ",
+    saved: "Your last pick. ",
+    example: "Your browser hides your graphics card for privacy, so this is an example. Pick yours above. ",
+  }[state.gpuSource] || "";
   $("gpu-meta").textContent = `${note}${g.vram_gb} GB of graphics memory, ${g.bandwidth_gbs} GB/s memory speed`;
   $("race-gpu").textContent = g.name;
   renderPredictions();
@@ -1149,9 +1153,10 @@ async function refreshAll() {
     const benchmarked = state.gpus.find(g => results.some(r => r.gpu.toUpperCase().includes(g.name.toUpperCase())));
     const saved = savedGpu.get();
     const fromBrowser = state.local.local ? null : matchGpu(browserGpu());
-    state.gpu = state.local.gpu_catalog || (state.gpus.some(g => g.name === saved) ? saved : "")
-      || fromBrowser?.name || benchmarked?.name || "";
-    state.gpuSource = state.local.gpu_catalog ? "local" : saved && state.gpu === saved ? "saved" : fromBrowser ? "browser" : state.gpu ? "results" : "";
+    // detection beats a remembered pick; the pick is for browsers that hide the card
+    state.gpu = state.local.gpu_catalog || fromBrowser?.name
+      || (state.gpus.some(g => g.name === saved) ? saved : "") || benchmarked?.name || "";
+    state.gpuSource = state.local.gpu_catalog ? "local" : fromBrowser ? "browser" : saved && state.gpu === saved ? "saved" : state.gpu ? "results" : "";
     if (!state.gpu && !state.local.local) { state.gpu = EXAMPLE_GPU; state.gpuSource = "example"; }
     renderGpuSelect();
     await refreshAll();
