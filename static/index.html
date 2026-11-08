@@ -547,8 +547,10 @@ function showError(e) {
 function renderGpuSelect() {
   const brand = n => n.startsWith("RTX") || n.startsWith("GTX") ? "NVIDIA" : n.startsWith("RX") ? "AMD" : "Intel";
   const opt = g => `<option value="${esc(g.name)}" ${g.name === state.gpu ? "selected" : ""}>${esc(g.name)}, ${g.vram_gb} GB</option>`;
+  const fam = state.family ? state.gpus.filter(g => g.name.startsWith(state.family[0])) : [];
   $("gpu-select").innerHTML = `<option value="">Choose your graphics card...</option>` +
-    ["NVIDIA", "AMD", "Intel"].map(b => `<optgroup label="${b}">${state.gpus.filter(g => brand(g.name) === b).map(opt).join("")}</optgroup>`).join("");
+    (fam.length ? `<optgroup label="Probably one of these (${esc(state.family[2])})">${fam.map(opt).join("")}</optgroup>` : "") +
+    ["NVIDIA", "AMD", "Intel"].map(b => `<optgroup label="${b}">${state.gpus.filter(g => brand(g.name) === b && !fam.includes(g)).map(opt).join("")}</optgroup>`).join("");
 }
 // GPU name from the browser (Chrome/Edge expose it through WebGL; Firefox/Safari usually hide it).
 function browserGpu() {
@@ -566,6 +568,25 @@ function matchGpu(name) {
   return hits.sort((a, b) => b.name.length - a.name.length)[0] || null;
 }
 const EXAMPLE_GPU = "RTX 4060";  // most common gaming card; used when nothing else is known
+
+// Browsers that hide the card's name often still report its family through WebGPU.
+// family -> [catalog name prefix, card to show while the user picks, label]
+const FAMILIES = {
+  "amd:rdna-2": ["RX 6", "RX 6700 XT", "AMD RX 6000 series"],
+  "amd:rdna-3": ["RX 7", "RX 7600", "AMD RX 7000 series"],
+  "nvidia:turing": ["RTX 20", "RTX 2060", "NVIDIA RTX 20 series"],
+  "nvidia:ampere": ["RTX 30", "RTX 3060", "NVIDIA RTX 30 series"],
+  "nvidia:lovelace": ["RTX 40", "RTX 4060", "NVIDIA RTX 40 series"],
+  "nvidia:ada-lovelace": ["RTX 40", "RTX 4060", "NVIDIA RTX 40 series"],
+  "nvidia:blackwell": ["RTX 50", "RTX 5070", "NVIDIA RTX 50 series"],
+  "intel:alchemist": ["Arc A", "Arc A750", "Intel Arc A series"],
+};
+async function gpuFamily() {
+  try {
+    const info = (await navigator.gpu?.requestAdapter())?.info;
+    return info ? FAMILIES[`${info.vendor}:${info.architecture}`] || null : null;
+  } catch { return null; }
+}
 
 // localStorage can throw (private mode etc.)
 function shareOn(value) {
@@ -606,8 +627,12 @@ async function loadPredictions() {
   const note = {
     browser: "Detected from your browser. ",
     saved: "Your last pick. ",
+    link: "From the link. ",
+    family: `Your browser only shares that it's an ${state.family?.[2]} card, so this is a guess. Pick your exact one above. `,
     example: "Your browser hides your graphics card for privacy, so this is an example. Pick yours above. ",
   }[state.gpuSource] || "";
+  // keep the address shareable: ?gpu=<card>
+  if (!state.local.local && !["example", "family"].includes(state.gpuSource)) try { const u = new URL(location.href); u.searchParams.set("gpu", g.name); history.replaceState(null, "", u); } catch {}
   $("gpu-meta").textContent = `${note}${g.vram_gb} GB of graphics memory, ${g.bandwidth_gbs} GB/s memory speed`;
   $("race-gpu").textContent = g.name;
   renderPredictions();
@@ -1152,12 +1177,17 @@ async function refreshAll() {
     // detected GPU > last picked > any benchmarked GPU
     const benchmarked = state.gpus.find(g => results.some(r => r.gpu.toUpperCase().includes(g.name.toUpperCase())));
     const saved = savedGpu.get();
+    const fromUrl = matchGpu(new URLSearchParams(location.search).get("gpu"));
     const fromBrowser = state.local.local ? null : matchGpu(browserGpu());
-    // detection beats a remembered pick; the pick is for browsers that hide the card
-    state.gpu = state.local.gpu_catalog || fromBrowser?.name
-      || (state.gpus.some(g => g.name === saved) ? saved : "") || benchmarked?.name || "";
-    state.gpuSource = state.local.gpu_catalog ? "local" : fromBrowser ? "browser" : saved && state.gpu === saved ? "saved" : state.gpu ? "results" : "";
-    if (!state.gpu && !state.local.local) { state.gpu = EXAMPLE_GPU; state.gpuSource = "example"; }
+    const savedOk = state.gpus.some(g => g.name === saved);
+    state.family = !state.local.local && !fromUrl && !fromBrowser ? await gpuFamily() : null;
+    // order: this PC > link > browser > last pick > family guess > benchmarked > example
+    const pick = [
+      ["local", state.local.gpu_catalog], ["link", fromUrl?.name], ["browser", fromBrowser?.name],
+      ["saved", savedOk ? saved : null], ["family", state.family?.[1]], ["results", benchmarked?.name],
+      ["example", state.local.local ? null : EXAMPLE_GPU],
+    ].find(([, name]) => name) || ["", ""];
+    [state.gpuSource, state.gpu] = pick;
     renderGpuSelect();
     await refreshAll();
     await loadPredictions();
