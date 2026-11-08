@@ -282,7 +282,7 @@
       <a href="#results">Results</a>
     </nav>
     <div class="status" id="status"></div>
-    <button class="btn" id="top-share" hidden>Share my results</button>
+    <button class="btn" id="top-share" hidden>Share</button>
   </header>
   <div class="wrap"><div class="alert" id="alert" role="alert"></div></div>
 
@@ -401,7 +401,7 @@
 
 <div class="modal" id="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-title">
   <div class="sheet" style="max-width:860px">
-    <div class="sheet-head"><h2 id="share-title">Share your results</h2><button class="btn" data-close>Close</button></div>
+    <div class="sheet-head"><h2 id="share-title">Share what your GPU can run</h2><button class="btn" data-close>Close</button></div>
     <div class="sheet-body">
       <canvas id="share-canvas" class="share-canvas" width="1200" height="630"></canvas>
       <div class="share-actions">
@@ -612,7 +612,7 @@ function renderNoGpu() {
   $("gpu-meta").innerHTML = hint;
   const help = `<p class="sub" style="margin-top:6px">Not sure which one you have? On Windows, open <b>Task Manager</b>, go to <b>Performance</b>, and look under <b>GPU</b>.</p>`;
   $("lanes").innerHTML = `<div style="padding:28px 0 8px"><p style="font-size:18px">${hint}</p>${help}</div>`;
-  $("race-go").hidden = $("race-reset").hidden = true;
+  $("race-go").hidden = $("race-reset").hidden = $("top-share").hidden = true;
   $("race-note").textContent = "";
   $("pred").innerHTML = `<div class="card"><div class="nomatch">Choose your graphics card at the top of the page to see which models it can run.</div></div>`;
   $("sort").innerHTML = $("tags").innerHTML = $("accuracy").innerHTML = "";
@@ -639,6 +639,7 @@ async function loadPredictions() {
   renderResults();
   renderLanes();
   renderMemoryControls();
+  $("top-share").hidden = false;
 }
 
 // will it run?
@@ -955,7 +956,7 @@ $("mem-model").onchange = e => { mem.model = e.target.value; updateMemory(); };
 // measured results + share cards
 function renderResults() {
   const data = state.results;
-  $("top-share").hidden = !data.length;
+
   const L = state.local;
   $("share-all").hidden = !(L.local && L.community_url && data.length);
   const gpus = [...new Set(data.map(r => r.gpu))];
@@ -975,7 +976,7 @@ function renderResults() {
     .filter(([gpu]) => state.resultsFilter === "All" || gpu === state.resultsFilter)
     .map(([gpu, rows]) => `
       <div class="card">
-        <div class="card-head"><h3>${esc(gpu)}</h3><button class="btn" data-share="${esc(gpu)}">Share card</button></div>
+        <div class="card-head"><h3>${esc(gpu)}</h3></div>
         ${rows.map(r => {
           const v = verdict(r.tokens_per_sec);
           const cat = state.pred?.models.find(m => m.model === r.model);
@@ -998,14 +999,40 @@ function renderResults() {
 }
 
 // 1200x630 share image
-async function drawShareCard(gpu) {
+// Up to 4 models for the selected GPU: real benchmarks first, then the most
+// capable models that run comfortably on it (estimates).
+// General-purpose families in rough order of current quality (newest generations first).
+// Hand-maintained: update when new families are added to data/models.json.
+const RECOMMENDED = ["qwen3.8", "qwen3.6", "gemma4", "qwen3.5", "gpt-oss", "ministral-3", "mistral-small",
+  "magistral", "qwen3", "phi4", "gemma3", "llama3.3", "llama3.1", "llama3.2"];
+const familyOf = m => m.model.split(":")[0];
+
+function shareRows() {
+  const usable = m => m.fits && shownSpeed(m) >= 7;  // leave out spilled or painfully slow runs
+  const bySize = (a, b) => (b.params_b || 0) - (a.params_b || 0);
+  const ms = state.pred.models;
+  const tested = ms.filter(m => m.measured != null && usable(m)).sort(bySize).slice(0, 3);
+  // estimates: best recommended family first, its biggest comfortable size, one per company
+  const makers = new Set(tested.map(m => m.maker));
+  const rank = m => RECOMMENDED.indexOf(familyOf(m));
+  const best = ms.filter(m => m.measured == null && rank(m) >= 0 && usable(m) && shownSpeed(m) >= 15)
+    .sort((a, b) => rank(a) - rank(b) || bySize(a, b))
+    .filter(m => !makers.has(m.maker) && makers.add(m.maker));
+  return [...tested, ...best].slice(0, 4).map(m => ({
+    name: m.display || m.model, tps: shownSpeed(m), tested: m.measured != null,
+  }));
+}
+
+async function drawShareCard() {
   await document.fonts.ready;
-  const rows = state.results.filter(r => r.gpu === gpu).sort((a, b) => b.tokens_per_sec - a.tokens_per_sec).slice(0, 4);
+  const gpu = state.pred.gpu.name, rows = shareRows();
+  const anyTested = rows.some(r => r.tested);
   const c = $("share-canvas"), g = c.getContext("2d");
-  const W = 1200, H = 630;
+  const W = 1200, H = 630, F = "Archivo, system-ui, sans-serif";
+  g.textAlign = "left";
   g.fillStyle = "#0d2521"; g.fillRect(0, 0, W, H);
   g.strokeStyle = "rgba(217,145,63,.18)"; g.lineWidth = 3;
-  for (let i = 0; i < 4; i++) {  // keep the traces in the top-right corner, clear of the numbers
+  for (let i = 0; i < 4; i++) {  // traces in the top-right corner, clear of the numbers
     const y = 50 + i * 48, x = 900 + (i % 2) * 50;
     g.beginPath(); g.moveTo(x, y); g.lineTo(x + 120, y); g.lineTo(x + 160, y + 40); g.lineTo(W, y + 40); g.stroke();
     g.beginPath(); g.arc(x, y, 6, 0, Math.PI * 2); g.stroke();
@@ -1013,31 +1040,37 @@ async function drawShareCard(gpu) {
   g.strokeStyle = "#d9913f"; g.lineWidth = 4; g.strokeRect(2, 2, W - 4, H - 4);
 
   g.fillStyle = "#d9913f"; g.fillRect(64, 60, 22, 22);
-  g.fillStyle = "#eef4ef"; g.font = "700 26px Archivo, system-ui, sans-serif"; g.fillText("LLM Bench", 100, 80);
-  g.font = "800 64px Archivo, system-ui, sans-serif"; g.fillText(gpu.length > 26 ? gpu.slice(0, 25) + "..." : gpu, 64, 170);
-  g.fillStyle = "#a7bdb4"; g.font = "400 26px Archivo, system-ui, sans-serif"; g.fillText("What my graphics card runs, measured", 64, 214);
+  g.fillStyle = "#eef4ef"; g.font = `700 26px ${F}`; g.fillText("LLM Bench", 100, 80);
+  g.font = `800 64px ${F}`; g.fillText(gpu, 64, 170);
+  g.fillStyle = "#a7bdb4"; g.font = `400 26px ${F}`;
+  g.fillText(`Best AI models it can run, ${state.pred.gpu.vram_gb} GB of graphics memory`, 64, 214);
 
-  const top = Math.max(...rows.map(r => r.tokens_per_sec));
+  const top = Math.max(...rows.map(r => r.tps));
   rows.forEach((r, i) => {
-    const y = 290 + i * 76, v = verdict(r.tokens_per_sec);
-    g.fillStyle = "#eef4ef"; g.font = "600 26px 'IBM Plex Mono', Consolas, monospace";
-    const name = r.model.length > 30 ? r.model.slice(0, 29) + "..." : r.model;
-    g.fillText(name, 64, y);
-    g.fillStyle = "#0a1e1a"; g.fillRect(64, y + 16, 700, 14);
-    g.fillStyle = v.hex; g.fillRect(64, y + 16, Math.max(8, 700 * r.tokens_per_sec / top), 14);
-    g.font = "800 40px Archivo, system-ui, sans-serif"; g.textAlign = "right"; g.fillText(fmt(r.tokens_per_sec), 980, y + 26);
-    g.font = "500 20px Archivo, system-ui, sans-serif"; g.fillStyle = "#a7bdb4"; g.fillText("tokens/sec", 1136, y + 24);
-    g.fillStyle = v.hex; g.font = "700 20px Archivo, system-ui, sans-serif"; g.fillText(v.label, 1136, y - 4);
+    const y = 272 + i * 72, v = verdict(r.tps);
     g.textAlign = "left";
+    g.fillStyle = "#eef4ef"; g.font = `600 28px ${F}`;
+    g.fillText(r.name.length > 34 ? r.name.slice(0, 33) + "..." : r.name, 64, y);
+    g.fillStyle = r.tested ? "#e9c46a" : "#6f8c82"; g.font = `600 18px ${F}`;
+    g.fillText(r.tested ? "TESTED" : "ESTIMATED", 780, y + 30);
+    g.fillStyle = "#0a1e1a"; g.fillRect(64, y + 16, 700, 14);
+    g.fillStyle = v.hex; g.fillRect(64, y + 16, Math.max(8, 700 * Math.sqrt(r.tps / top)), 14);  // sqrt so one fast model doesn't flatten the rest
+    g.textAlign = "right";
+    g.fillStyle = v.hex; g.font = `800 40px ${F}`; g.fillText((r.tested ? "" : "~") + fmt(r.tps), 990, y + 26);
+    g.font = `500 20px ${F}`; g.fillStyle = "#a7bdb4"; g.fillText("tokens/sec", 1136, y + 24);
+    g.fillStyle = v.hex; g.font = `700 20px ${F}`; g.fillText(v.label, 1136, y - 4);
   });
-  g.fillStyle = "#6f8c82"; g.font = "400 20px Archivo, system-ui, sans-serif";
-  g.fillText("Averaged over 9 runs per model with identical settings. Test your own GPU with LLM Bench.", 64, H - 40);
+  g.textAlign = "left"; g.fillStyle = "#6f8c82"; g.font = `400 20px ${F}`;
+  g.fillText(anyTested ? "Tested = real benchmark (9 runs). Estimated = predicted from memory speed." :
+    "Estimated from memory speed and real benchmarks.", 64, H - 58);
+  g.fillText("Check your own GPU at llm-bench.onrender.com", 64, H - 30);
 }
-async function openShare(gpu) {
+async function openShare() {
+  if (!state.pred) return;
   $("share-msg").textContent = "";
   $("share-modal").classList.add("show");
-  $("share-modal").dataset.gpu = gpu;
-  await drawShareCard(gpu);
+  $("share-modal").dataset.gpu = state.pred.gpu.name;
+  await drawShareCard();
 }
 $("share-download").onclick = () => {
   const a = document.createElement("a");
@@ -1143,12 +1176,7 @@ $("share-all").onclick = async () => {
   } catch (e) { msg.textContent = e.message; }
   b.disabled = false;
 };
-$("top-share").onclick = () => {
-  const gpus = [...new Set(state.results.map(r => r.gpu))];
-  const match = gpus.find(g => state.gpu && g.toUpperCase().includes(state.gpu.toUpperCase()));
-  openShare(match || gpus[0]);
-};
-$("list").addEventListener("click", e => { const b = e.target.closest("[data-share]"); if (b) openShare(b.dataset.share); });
+$("top-share").onclick = openShare;
 $("tray-clear").onclick = () => { state.compare.clear(); renderPredictions(); };
 $("tray-go").onclick = openCompare;
 const closeModals = () => document.querySelectorAll(".modal").forEach(m => m.classList.remove("show"));
