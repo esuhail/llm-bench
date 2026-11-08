@@ -11,7 +11,7 @@ import webbrowser
 
 HOST, PORT = "127.0.0.1", 8000
 # public site that local installs share results with (empty = sharing off)
-PUBLIC_SITE = ""
+PUBLIC_SITE = "https://llm-bench.onrender.com"
 URL = f"http://{HOST}:{PORT}"
 
 

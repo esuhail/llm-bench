@@ -550,6 +550,23 @@ function renderGpuSelect() {
   $("gpu-select").innerHTML = `<option value="">Choose your graphics card...</option>` +
     ["NVIDIA", "AMD", "Intel"].map(b => `<optgroup label="${b}">${state.gpus.filter(g => brand(g.name) === b).map(opt).join("")}</optgroup>`).join("");
 }
+// GPU name from the browser (Chrome/Edge expose it through WebGL; Firefox/Safari usually hide it).
+function browserGpu() {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    const ext = gl && gl.getExtension("WEBGL_debug_renderer_info");
+    return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : null;
+  } catch { return null; }
+}
+// same rule as predict.find_gpu: longest catalog name contained in the string
+function matchGpu(name) {
+  if (!name) return null;
+  const n = name.toUpperCase();
+  const hits = state.gpus.filter(g => n.includes(g.name.toUpperCase()));
+  return hits.sort((a, b) => b.name.length - a.name.length)[0] || null;
+}
+const EXAMPLE_GPU = "RTX 4060";  // most common gaming card; used when nothing else is known
+
 // localStorage can throw (private mode etc.)
 function shareOn(value) {
   try {
@@ -560,7 +577,7 @@ function shareOn(value) {
 const savedGpu = { get: () => { try { return localStorage.getItem("llmbench.gpu") || ""; } catch { return ""; } },
                    set: v => { try { localStorage.setItem("llmbench.gpu", v); } catch {} } };
 $("gpu-select").onchange = async e => {
-  state.gpu = e.target.value; state.compare.clear(); state.showAll = false;
+  state.gpu = e.target.value; state.gpuSource = "picked"; state.compare.clear(); state.showAll = false;
   savedGpu.set(state.gpu);
   resetRace();
   await loadPredictions();
@@ -586,7 +603,8 @@ async function loadPredictions() {
   $("race-go").hidden = $("race-reset").hidden = false;
   state.pred = await api("/api/predictions?gpu=" + encodeURIComponent(state.gpu));
   const g = state.pred.gpu;
-  $("gpu-meta").textContent = `${g.vram_gb} GB of graphics memory, ${g.bandwidth_gbs} GB/s memory speed`;
+  const note = { browser: "Detected from your browser. ", example: "Showing an example card. Pick yours above. " }[state.gpuSource] || "";
+  $("gpu-meta").textContent = `${note}${g.vram_gb} GB of graphics memory, ${g.bandwidth_gbs} GB/s memory speed`;
   $("race-gpu").textContent = g.name;
   renderPredictions();
   renderResults();
@@ -1130,7 +1148,11 @@ async function refreshAll() {
     // detected GPU > last picked > any benchmarked GPU
     const benchmarked = state.gpus.find(g => results.some(r => r.gpu.toUpperCase().includes(g.name.toUpperCase())));
     const saved = savedGpu.get();
-    state.gpu = state.local.gpu_catalog || (state.gpus.some(g => g.name === saved) ? saved : "") || benchmarked?.name || "";
+    const fromBrowser = state.local.local ? null : matchGpu(browserGpu());
+    state.gpu = state.local.gpu_catalog || (state.gpus.some(g => g.name === saved) ? saved : "")
+      || fromBrowser?.name || benchmarked?.name || "";
+    state.gpuSource = state.local.gpu_catalog ? "local" : saved && state.gpu === saved ? "saved" : fromBrowser ? "browser" : state.gpu ? "results" : "";
+    if (!state.gpu && !state.local.local) { state.gpu = EXAMPLE_GPU; state.gpuSource = "example"; }
     renderGpuSelect();
     await refreshAll();
     await loadPredictions();

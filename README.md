@@ -2,6 +2,8 @@
 
 Check which local AI models your GPU can run, and how fast, before downloading them.
 
+**Live site: https://llm-bench.onrender.com** (free hosting, so the first load after a quiet period can take about a minute)
+
 ![LLM Bench speed race on an RX 6750 XT](docs/screenshot.png)
 
 Local models are multi-gigabyte downloads, and it's hard to tell whether one will run well on your card until you've already downloaded it. LLM Bench benchmarks models through [Ollama](https://ollama.com) and estimates speed for models you haven't downloaded, based on your GPU's memory bandwidth.
