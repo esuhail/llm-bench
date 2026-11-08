@@ -1,0 +1,988 @@
+{
+ "_note": "Popular Ollama models at their default (~Q4) quantization. Sizes are estimated from parameter counts. Tags are hand-picked.",
+ "tags": [
+  "Chat",
+  "Coding",
+  "Reasoning",
+  "Vision",
+  "Writing",
+  "Multilingual",
+  "Tool use"
+ ],
+ "models": [
+  {
+   "name": "llama3.2:1b",
+   "params_b": 1.2,
+   "active_params_b": 1.2,
+   "tags": [
+    "Chat",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Small general-purpose models, good for older GPUs",
+   "maker": "Meta",
+   "display": "Llama 3.2 1B"
+  },
+  {
+   "name": "llama3.2:3b",
+   "params_b": 3.2,
+   "active_params_b": 3.2,
+   "tags": [
+    "Chat",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Small general-purpose models, good for older GPUs",
+   "maker": "Meta",
+   "display": "Llama 3.2 3B"
+  },
+  {
+   "name": "llama3.1:8b",
+   "params_b": 8.0,
+   "active_params_b": 8.0,
+   "tags": [
+    "Chat",
+    "Writing",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "General-purpose all-rounder",
+   "maker": "Meta",
+   "display": "Llama 3.1 8B"
+  },
+  {
+   "name": "llama3.1:70b",
+   "params_b": 70.6,
+   "active_params_b": 70.6,
+   "tags": [
+    "Chat",
+    "Writing",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "General-purpose all-rounder",
+   "maker": "Meta",
+   "display": "Llama 3.1 70B"
+  },
+  {
+   "name": "llama3.3:70b",
+   "params_b": 70.6,
+   "active_params_b": 70.6,
+   "tags": [
+    "Chat",
+    "Writing",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "70B model with near top-tier quality",
+   "maker": "Meta",
+   "display": "Llama 3.3 70B"
+  },
+  {
+   "name": "gemma3:1b",
+   "params_b": 1.0,
+   "active_params_b": 1.0,
+   "tags": [
+    "Chat",
+    "Writing",
+    "Multilingual"
+   ],
+   "desc": "Writes well; 4B and up can read images",
+   "maker": "Google",
+   "display": "Gemma 3 1B"
+  },
+  {
+   "name": "gemma3:4b",
+   "params_b": 4.3,
+   "active_params_b": 4.3,
+   "tags": [
+    "Chat",
+    "Vision",
+    "Writing",
+    "Multilingual"
+   ],
+   "desc": "Writes well; 4B and up can read images",
+   "maker": "Google",
+   "display": "Gemma 3 4B"
+  },
+  {
+   "name": "gemma3:12b",
+   "params_b": 12.2,
+   "active_params_b": 12.2,
+   "tags": [
+    "Chat",
+    "Vision",
+    "Writing",
+    "Multilingual"
+   ],
+   "desc": "Writes well; 4B and up can read images",
+   "maker": "Google",
+   "display": "Gemma 3 12B"
+  },
+  {
+   "name": "gemma3:27b",
+   "params_b": 27.4,
+   "active_params_b": 27.4,
+   "tags": [
+    "Chat",
+    "Vision",
+    "Writing",
+    "Multilingual"
+   ],
+   "desc": "Writes well; 4B and up can read images",
+   "maker": "Google",
+   "display": "Gemma 3 27B"
+  },
+  {
+   "name": "qwen3:0.6b",
+   "params_b": 0.6,
+   "active_params_b": 0.6,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Can think step by step before answering",
+   "maker": "Alibaba",
+   "display": "Qwen 3 0.6B"
+  },
+  {
+   "name": "qwen3:1.7b",
+   "params_b": 1.7,
+   "active_params_b": 1.7,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Can think step by step before answering",
+   "maker": "Alibaba",
+   "display": "Qwen 3 1.7B"
+  },
+  {
+   "name": "qwen3:4b",
+   "params_b": 4.0,
+   "active_params_b": 4.0,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Can think step by step before answering",
+   "maker": "Alibaba",
+   "display": "Qwen 3 4B"
+  },
+  {
+   "name": "qwen3:8b",
+   "params_b": 8.2,
+   "active_params_b": 8.2,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Can think step by step before answering",
+   "maker": "Alibaba",
+   "display": "Qwen 3 8B"
+  },
+  {
+   "name": "qwen3:14b",
+   "params_b": 14.8,
+   "active_params_b": 14.8,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Can think step by step before answering",
+   "maker": "Alibaba",
+   "display": "Qwen 3 14B"
+  },
+  {
+   "name": "qwen3:32b",
+   "params_b": 32.8,
+   "active_params_b": 32.8,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Can think step by step before answering",
+   "maker": "Alibaba",
+   "display": "Qwen 3 32B"
+  },
+  {
+   "name": "qwen3:30b",
+   "params_b": 30.5,
+   "active_params_b": 3.3,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Can think step by step before answering",
+   "maker": "Alibaba",
+   "display": "Qwen 3 30B"
+  },
+  {
+   "name": "qwen3:235b",
+   "params_b": 235,
+   "active_params_b": 22,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Can think step by step before answering",
+   "maker": "Alibaba",
+   "display": "Qwen 3 235B"
+  },
+  {
+   "name": "qwen2.5:0.5b",
+   "params_b": 0.5,
+   "active_params_b": 0.5,
+   "tags": [
+    "Chat",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "General-purpose, strong in many languages",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 0.5B"
+  },
+  {
+   "name": "qwen2.5:1.5b",
+   "params_b": 1.5,
+   "active_params_b": 1.5,
+   "tags": [
+    "Chat",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "General-purpose, strong in many languages",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 1.5B"
+  },
+  {
+   "name": "qwen2.5:3b",
+   "params_b": 3.1,
+   "active_params_b": 3.1,
+   "tags": [
+    "Chat",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "General-purpose, strong in many languages",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 3B"
+  },
+  {
+   "name": "qwen2.5:7b",
+   "params_b": 7.6,
+   "active_params_b": 7.6,
+   "tags": [
+    "Chat",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "General-purpose, strong in many languages",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 7B"
+  },
+  {
+   "name": "qwen2.5:14b",
+   "params_b": 14.8,
+   "active_params_b": 14.8,
+   "tags": [
+    "Chat",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "General-purpose, strong in many languages",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 14B"
+  },
+  {
+   "name": "qwen2.5:32b",
+   "params_b": 32.8,
+   "active_params_b": 32.8,
+   "tags": [
+    "Chat",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "General-purpose, strong in many languages",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 32B"
+  },
+  {
+   "name": "qwen2.5:72b",
+   "params_b": 72.7,
+   "active_params_b": 72.7,
+   "tags": [
+    "Chat",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "General-purpose, strong in many languages",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 72B"
+  },
+  {
+   "name": "qwen3.5:9b",
+   "params_b": 9.0,
+   "active_params_b": 9.0,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Handles images, tools and step-by-step thinking",
+   "maker": "Alibaba",
+   "display": "Qwen 3.5 9B"
+  },
+  {
+   "name": "mistral:7b",
+   "params_b": 7.2,
+   "active_params_b": 7.2,
+   "tags": [
+    "Chat",
+    "Tool use"
+   ],
+   "desc": "Fast, dependable 7B",
+   "maker": "Mistral AI",
+   "display": "Mistral 7B"
+  },
+  {
+   "name": "mistral-nemo:12b",
+   "params_b": 12.2,
+   "active_params_b": 12.2,
+   "tags": [
+    "Chat",
+    "Writing",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Popular for creative writing",
+   "maker": "Mistral AI",
+   "display": "Mistral Nemo 12B"
+  },
+  {
+   "name": "mistral-small:24b",
+   "params_b": 23.6,
+   "active_params_b": 23.6,
+   "tags": [
+    "Chat",
+    "Writing",
+    "Tool use"
+   ],
+   "desc": "High quality that still fits 16-24 GB cards",
+   "maker": "Mistral AI",
+   "display": "Mistral Small 24B"
+  },
+  {
+   "name": "phi4:14b",
+   "params_b": 14.7,
+   "active_params_b": 14.7,
+   "tags": [
+    "Chat",
+    "Reasoning"
+   ],
+   "desc": "Strong at reasoning and math for its size",
+   "maker": "Microsoft",
+   "display": "Phi-4 14B"
+  },
+  {
+   "name": "phi4-mini:3.8b",
+   "params_b": 3.8,
+   "active_params_b": 3.8,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Tool use"
+   ],
+   "desc": "Good reasoning on modest hardware",
+   "maker": "Microsoft",
+   "display": "Phi-4 Mini 3.8B"
+  },
+  {
+   "name": "phi4-reasoning:14b",
+   "params_b": 14.7,
+   "active_params_b": 14.7,
+   "tags": [
+    "Reasoning"
+   ],
+   "desc": "Tuned for step-by-step reasoning",
+   "maker": "Microsoft",
+   "display": "Phi-4 Reasoning 14B"
+  },
+  {
+   "name": "deepseek-r1:1.5b",
+   "params_b": 1.8,
+   "active_params_b": 1.8,
+   "tags": [
+    "Reasoning"
+   ],
+   "desc": "Thinks before answering",
+   "maker": "DeepSeek",
+   "display": "DeepSeek R1 1.5B"
+  },
+  {
+   "name": "deepseek-r1:7b",
+   "params_b": 7.6,
+   "active_params_b": 7.6,
+   "tags": [
+    "Reasoning"
+   ],
+   "desc": "Thinks before answering",
+   "maker": "DeepSeek",
+   "display": "DeepSeek R1 7B"
+  },
+  {
+   "name": "deepseek-r1:8b",
+   "params_b": 8.2,
+   "active_params_b": 8.2,
+   "tags": [
+    "Reasoning"
+   ],
+   "desc": "Thinks before answering",
+   "maker": "DeepSeek",
+   "display": "DeepSeek R1 8B"
+  },
+  {
+   "name": "deepseek-r1:14b",
+   "params_b": 14.8,
+   "active_params_b": 14.8,
+   "tags": [
+    "Reasoning"
+   ],
+   "desc": "Thinks before answering",
+   "maker": "DeepSeek",
+   "display": "DeepSeek R1 14B"
+  },
+  {
+   "name": "deepseek-r1:32b",
+   "params_b": 32.8,
+   "active_params_b": 32.8,
+   "tags": [
+    "Reasoning"
+   ],
+   "desc": "Thinks before answering",
+   "maker": "DeepSeek",
+   "display": "DeepSeek R1 32B"
+  },
+  {
+   "name": "deepseek-r1:70b",
+   "params_b": 70.6,
+   "active_params_b": 70.6,
+   "tags": [
+    "Reasoning"
+   ],
+   "desc": "Thinks before answering",
+   "maker": "DeepSeek",
+   "display": "DeepSeek R1 70B"
+  },
+  {
+   "name": "qwq:32b",
+   "params_b": 32.8,
+   "active_params_b": 32.8,
+   "tags": [
+    "Reasoning"
+   ],
+   "desc": "32B reasoning model",
+   "maker": "Alibaba",
+   "display": "QwQ 32B"
+  },
+  {
+   "name": "gpt-oss:20b",
+   "params_b": 20.9,
+   "active_params_b": 3.6,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Tool use"
+   ],
+   "desc": "Open-weight reasoning model",
+   "maker": "OpenAI",
+   "display": "GPT-OSS 20B"
+  },
+  {
+   "name": "gpt-oss:120b",
+   "params_b": 116.8,
+   "active_params_b": 5.1,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Tool use"
+   ],
+   "desc": "Open-weight reasoning model",
+   "maker": "OpenAI",
+   "display": "GPT-OSS 120B"
+  },
+  {
+   "name": "granite3.3:2b",
+   "params_b": 2.5,
+   "active_params_b": 2.5,
+   "tags": [
+    "Chat",
+    "Tool use"
+   ],
+   "desc": "Business-focused models",
+   "maker": "IBM",
+   "display": "Granite 3.3 2B"
+  },
+  {
+   "name": "granite3.3:8b",
+   "params_b": 8.2,
+   "active_params_b": 8.2,
+   "tags": [
+    "Chat",
+    "Tool use"
+   ],
+   "desc": "Business-focused models",
+   "maker": "IBM",
+   "display": "Granite 3.3 8B"
+  },
+  {
+   "name": "smollm2:1.7b",
+   "params_b": 1.7,
+   "active_params_b": 1.7,
+   "tags": [
+    "Chat"
+   ],
+   "desc": "Tiny, runs on almost anything",
+   "maker": "Hugging Face",
+   "display": "SmolLM2 1.7B"
+  },
+  {
+   "name": "tinyllama:1.1b",
+   "params_b": 1.1,
+   "active_params_b": 1.1,
+   "tags": [
+    "Chat"
+   ],
+   "desc": "Very small and fast, but limited",
+   "maker": "TinyLlama project",
+   "display": "TinyLlama 1.1B"
+  },
+  {
+   "name": "olmo2:7b",
+   "params_b": 7.3,
+   "active_params_b": 7.3,
+   "tags": [
+    "Chat"
+   ],
+   "desc": "Fully open: training data and code are published",
+   "maker": "Allen Institute for AI",
+   "display": "OLMo 2 7B"
+  },
+  {
+   "name": "olmo2:13b",
+   "params_b": 13.7,
+   "active_params_b": 13.7,
+   "tags": [
+    "Chat"
+   ],
+   "desc": "Fully open: training data and code are published",
+   "maker": "Allen Institute for AI",
+   "display": "OLMo 2 13B"
+  },
+  {
+   "name": "hermes3:8b",
+   "params_b": 8.0,
+   "active_params_b": 8.0,
+   "tags": [
+    "Chat",
+    "Writing",
+    "Tool use"
+   ],
+   "desc": "Llama fine-tune, good for role-play and writing",
+   "maker": "Nous Research",
+   "display": "Hermes 3 8B"
+  },
+  {
+   "name": "dolphin3:8b",
+   "params_b": 8.0,
+   "active_params_b": 8.0,
+   "tags": [
+    "Chat",
+    "Writing"
+   ],
+   "desc": "Less filtered Llama fine-tune",
+   "maker": "Cognitive Computations",
+   "display": "Dolphin 3 8B"
+  },
+  {
+   "name": "command-r:35b",
+   "params_b": 35.0,
+   "active_params_b": 35.0,
+   "tags": [
+    "Chat",
+    "Writing",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Built for answering questions about documents",
+   "maker": "Cohere",
+   "display": "Command R 35B"
+  },
+  {
+   "name": "aya-expanse:8b",
+   "params_b": 8.0,
+   "active_params_b": 8.0,
+   "tags": [
+    "Chat",
+    "Multilingual"
+   ],
+   "desc": "Covers 23 languages",
+   "maker": "Cohere",
+   "display": "Aya Expanse 8B"
+  },
+  {
+   "name": "aya-expanse:32b",
+   "params_b": 32.3,
+   "active_params_b": 32.3,
+   "tags": [
+    "Chat",
+    "Multilingual"
+   ],
+   "desc": "Covers 23 languages",
+   "maker": "Cohere",
+   "display": "Aya Expanse 32B"
+  },
+  {
+   "name": "qwen2.5-coder:0.5b",
+   "params_b": 0.5,
+   "active_params_b": 0.5,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Code completion and fixing",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 Coder 0.5B"
+  },
+  {
+   "name": "qwen2.5-coder:1.5b",
+   "params_b": 1.5,
+   "active_params_b": 1.5,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Code completion and fixing",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 Coder 1.5B"
+  },
+  {
+   "name": "qwen2.5-coder:3b",
+   "params_b": 3.1,
+   "active_params_b": 3.1,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Code completion and fixing",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 Coder 3B"
+  },
+  {
+   "name": "qwen2.5-coder:7b",
+   "params_b": 7.6,
+   "active_params_b": 7.6,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Code completion and fixing",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 Coder 7B"
+  },
+  {
+   "name": "qwen2.5-coder:14b",
+   "params_b": 14.8,
+   "active_params_b": 14.8,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Code completion and fixing",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 Coder 14B"
+  },
+  {
+   "name": "qwen2.5-coder:32b",
+   "params_b": 32.8,
+   "active_params_b": 32.8,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Code completion and fixing",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 Coder 32B"
+  },
+  {
+   "name": "qwen3-coder:30b",
+   "params_b": 30.5,
+   "active_params_b": 3.3,
+   "tags": [
+    "Coding",
+    "Tool use"
+   ],
+   "desc": "Built for coding agents",
+   "maker": "Alibaba",
+   "display": "Qwen 3 Coder 30B"
+  },
+  {
+   "name": "deepseek-coder-v2:16b",
+   "params_b": 15.7,
+   "active_params_b": 2.4,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Coding model",
+   "maker": "DeepSeek",
+   "display": "DeepSeek Coder V2 16B"
+  },
+  {
+   "name": "codellama:7b",
+   "params_b": 6.7,
+   "active_params_b": 6.7,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Older coding model based on Llama 2",
+   "maker": "Meta",
+   "display": "Code Llama 7B"
+  },
+  {
+   "name": "codellama:13b",
+   "params_b": 13.0,
+   "active_params_b": 13.0,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Older coding model based on Llama 2",
+   "maker": "Meta",
+   "display": "Code Llama 13B"
+  },
+  {
+   "name": "codellama:34b",
+   "params_b": 34.0,
+   "active_params_b": 34.0,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Older coding model based on Llama 2",
+   "maker": "Meta",
+   "display": "Code Llama 34B"
+  },
+  {
+   "name": "codegemma:7b",
+   "params_b": 8.5,
+   "active_params_b": 8.5,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Coding model",
+   "maker": "Google",
+   "display": "CodeGemma 7B"
+  },
+  {
+   "name": "starcoder2:3b",
+   "params_b": 3.0,
+   "active_params_b": 3.0,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Code completion",
+   "maker": "BigCode",
+   "display": "StarCoder2 3B"
+  },
+  {
+   "name": "starcoder2:7b",
+   "params_b": 7.2,
+   "active_params_b": 7.2,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Code completion",
+   "maker": "BigCode",
+   "display": "StarCoder2 7B"
+  },
+  {
+   "name": "starcoder2:15b",
+   "params_b": 16.0,
+   "active_params_b": 16.0,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "Code completion",
+   "maker": "BigCode",
+   "display": "StarCoder2 15B"
+  },
+  {
+   "name": "devstral:24b",
+   "params_b": 23.6,
+   "active_params_b": 23.6,
+   "tags": [
+    "Coding",
+    "Tool use"
+   ],
+   "desc": "Built for coding agents",
+   "maker": "Mistral AI",
+   "display": "Devstral 24B"
+  },
+  {
+   "name": "codestral:22b",
+   "params_b": 22.2,
+   "active_params_b": 22.2,
+   "tags": [
+    "Coding"
+   ],
+   "desc": "22B coding model",
+   "maker": "Mistral AI",
+   "display": "Codestral 22B"
+  },
+  {
+   "name": "llava:7b",
+   "params_b": 7.2,
+   "active_params_b": 7.2,
+   "tags": [
+    "Vision",
+    "Chat"
+   ],
+   "desc": "Describes images",
+   "maker": "LLaVA team",
+   "display": "LLaVA 7B"
+  },
+  {
+   "name": "llava:13b",
+   "params_b": 13.0,
+   "active_params_b": 13.0,
+   "tags": [
+    "Vision",
+    "Chat"
+   ],
+   "desc": "Describes images",
+   "maker": "LLaVA team",
+   "display": "LLaVA 13B"
+  },
+  {
+   "name": "llava:34b",
+   "params_b": 34.0,
+   "active_params_b": 34.0,
+   "tags": [
+    "Vision",
+    "Chat"
+   ],
+   "desc": "Describes images",
+   "maker": "LLaVA team",
+   "display": "LLaVA 34B"
+  },
+  {
+   "name": "llama3.2-vision:11b",
+   "params_b": 10.7,
+   "active_params_b": 10.7,
+   "tags": [
+    "Vision",
+    "Chat"
+   ],
+   "desc": "Understands images",
+   "maker": "Meta",
+   "display": "Llama 3.2 Vision 11B"
+  },
+  {
+   "name": "llama3.2-vision:90b",
+   "params_b": 88.6,
+   "active_params_b": 88.6,
+   "tags": [
+    "Vision",
+    "Chat"
+   ],
+   "desc": "Understands images",
+   "maker": "Meta",
+   "display": "Llama 3.2 Vision 90B"
+  },
+  {
+   "name": "qwen2.5vl:3b",
+   "params_b": 3.8,
+   "active_params_b": 3.8,
+   "tags": [
+    "Vision",
+    "Chat",
+    "Multilingual"
+   ],
+   "desc": "Good at reading documents and charts",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 VL 3B"
+  },
+  {
+   "name": "qwen2.5vl:7b",
+   "params_b": 8.3,
+   "active_params_b": 8.3,
+   "tags": [
+    "Vision",
+    "Chat",
+    "Multilingual"
+   ],
+   "desc": "Good at reading documents and charts",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 VL 7B"
+  },
+  {
+   "name": "qwen2.5vl:32b",
+   "params_b": 33.5,
+   "active_params_b": 33.5,
+   "tags": [
+    "Vision",
+    "Chat",
+    "Multilingual"
+   ],
+   "desc": "Good at reading documents and charts",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 VL 32B"
+  },
+  {
+   "name": "qwen2.5vl:72b",
+   "params_b": 73.4,
+   "active_params_b": 73.4,
+   "tags": [
+    "Vision",
+    "Chat",
+    "Multilingual"
+   ],
+   "desc": "Good at reading documents and charts",
+   "maker": "Alibaba",
+   "display": "Qwen 2.5 VL 72B"
+  },
+  {
+   "name": "minicpm-v:8b",
+   "params_b": 8.1,
+   "active_params_b": 8.1,
+   "tags": [
+    "Vision",
+    "Chat"
+   ],
+   "desc": "Compact, good at reading text in images",
+   "maker": "OpenBMB",
+   "display": "MiniCPM-V 8B"
+  },
+  {
+   "name": "moondream:1.8b",
+   "params_b": 1.9,
+   "active_params_b": 1.9,
+   "tags": [
+    "Vision"
+   ],
+   "desc": "Tiny image model",
+   "maker": "Moondream",
+   "display": "Moondream 1.8B"
+  }
+ ]
+}

@@ -1,0 +1,5 @@
+bench.db
+results.json
+__pycache__/
+.venv/
+NOTES.md

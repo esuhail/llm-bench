@@ -1,0 +1,1109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Bench: what can your GPU run?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* circuit board palette */
+  :root {
+    --board: #081815; --panel: #15362f; --panel-2: #1b4239; --line: #2a574c; --line-2: #3b6b5f;
+    --raise: 0 1px 0 rgba(255,255,255,.06) inset, 0 18px 40px -18px rgba(0,0,0,.65);
+    --silk: #eef4ef; --muted: #a7bdb4; --dim: #6f8c82;
+    --copper: #d9913f; --copper-hi: #f0b061; --gold: #e9c46a;
+    --fast: #7ee0a7; --ok: #e9c46a; --usable: #f28c5b; --slow: #ef5b5b;
+    --weights: #d9913f; --kv: #e9c46a; --runtime: #8fb3a7;
+    --display: "Archivo", system-ui, sans-serif;
+    --body: "Archivo", system-ui, sans-serif;
+    --code: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+  body { background: var(--board); color: var(--silk); font: 400 16px/1.55 var(--body);
+         font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+  a { color: var(--copper-hi); }
+  :focus-visible { outline: 2px solid var(--copper-hi); outline-offset: 2px; border-radius: 4px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+
+  /* background traces */
+  .traces, .traces-lit { position: fixed; inset: 0; pointer-events: none; z-index: 0; background-size: 280px 280px; }
+  .traces { opacity: .05; }
+  .traces-lit { opacity: .55; --mx: -999px; --my: -999px;
+    -webkit-mask-image: radial-gradient(240px circle at var(--mx) var(--my), #000 0%, transparent 70%);
+            mask-image: radial-gradient(240px circle at var(--mx) var(--my), #000 0%, transparent 70%); }
+  @media (hover: none) { .traces-lit { display: none; } }
+  .page { position: relative; z-index: 1; }
+
+  /* top bar */
+  .topbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 28px;
+            padding: 12px clamp(20px, 4vw, 64px); background: rgba(8, 24, 21, .9); backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 10px; white-space: nowrap; font: 750 17px var(--display); font-stretch: 112%; color: var(--silk); text-decoration: none; }
+  .chip-icon { width: 22px; height: 22px; border: 2px solid var(--copper); border-radius: 4px; position: relative; }
+  .chip-icon::before { content: ""; position: absolute; inset: 4px; background: var(--copper); border-radius: 1px; }
+  .topbar nav { display: flex; gap: 4px; }
+  .topbar nav a { color: var(--muted); text-decoration: none; font-size: 15px; padding: 6px 12px; border-radius: 8px; transition: color .15s, background .15s; }
+  .topbar nav a:hover { color: var(--silk); background: var(--panel-2); }
+  .topbar .status { margin-left: auto; display: flex; gap: 18px; align-items: center; font-size: 14px; color: var(--muted); flex-wrap: wrap; justify-content: flex-end; }
+  .status b { color: var(--silk); font-weight: 600; }
+  .led { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 7px; vertical-align: 1px;
+         background: var(--fast); box-shadow: 0 0 8px var(--fast); }
+  .led.off { background: var(--usable); box-shadow: 0 0 8px var(--usable); }
+  .alert { max-width: 1480px; margin: 16px auto 0; padding: 12px 18px; border: 1px solid var(--slow); border-radius: 10px; color: var(--silk); background: #3a1f1d; display: none; }
+  .alert.show { display: block; }
+
+  .wrap { max-width: 1600px; margin: 0 auto; padding: 0 clamp(20px, 4vw, 64px); }
+  section.block { padding: 72px 0 8px; }
+  h1 { font: 800 clamp(40px, 4.3vw, 74px)/1 var(--display); font-stretch: 112%; letter-spacing: -.03em; }
+  h2 { font: 750 clamp(28px, 2.6vw, 38px)/1.1 var(--display); font-stretch: 115%; letter-spacing: -.02em; margin-bottom: 10px; }
+  .lede { color: var(--muted); font-size: 19px; line-height: 1.55; max-width: 34em; }
+  .sub { color: var(--muted); max-width: 46em; }
+
+  /* controls */
+  select, .search { font: 500 15px var(--body); color: var(--silk); background: var(--panel); border: 1px solid var(--line-2);
+                    padding: 10px 14px; border-radius: 10px; }
+  select { cursor: pointer; }
+  select:hover, .search:hover { border-color: var(--copper); }
+  .btn { font: 600 14px var(--body); color: var(--silk); background: transparent; border: 1px solid var(--line-2);
+         padding: 7px 13px; border-radius: 8px; cursor: pointer; transition: border-color .15s, color .15s, background .15s, box-shadow .15s; white-space: nowrap; }
+  .btn:hover:not(:disabled) { border-color: var(--copper); color: var(--copper-hi); box-shadow: 0 0 0 3px rgba(217,145,63,.12); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn.primary { background: var(--copper); border-color: var(--copper); color: #1d1206; }
+  .btn.primary:hover:not(:disabled) { background: var(--copper-hi); color: #1d1206; }
+  .btn.on { border-color: var(--copper); color: var(--copper-hi); background: rgba(217,145,63,.1); }
+  .btn.danger:hover:not(:disabled) { border-color: var(--slow); color: var(--slow); box-shadow: none; }
+  .chip { font: 500 14px var(--body); color: var(--muted); background: var(--panel); border: 1px solid var(--line);
+          padding: 7px 13px; border-radius: 999px; cursor: pointer; transition: color .15s, border-color .15s; }
+  .chip:hover:not(:disabled) { color: var(--silk); border-color: var(--copper); }
+  .chip:disabled { opacity: .35; cursor: not-allowed; }
+  .chip.on { color: #1d1206; background: var(--copper); border-color: var(--copper); }
+  .chip .n { opacity: .6; margin-left: 5px; font-size: 12px; }
+  .pill { display: inline-block; font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: 6px; color: #10201c; }
+  .term { border-bottom: 1px dotted var(--dim); cursor: help; }
+
+  /* hero + race */
+  .hero { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.25fr); gap: clamp(32px, 4vw, 72px); align-items: center; padding: 64px 0 24px; }
+  .hero-gpu { margin-top: 32px; display: flex; flex-direction: column; gap: 8px; max-width: 380px; }
+  .hero-gpu label { color: var(--muted); font-size: 15px; }
+  .hero-gpu select { font-size: 17px; padding: 12px 16px; }
+  .gpu-meta { color: var(--dim); font-size: 14px; }
+
+  .race { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 22px 22px 18px; box-shadow: var(--raise); }
+  .race-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; }
+  .race-head h3 { font: 700 20px var(--display); font-stretch: 110%; }
+  .race-head p { color: var(--muted); font-size: 14px; }
+  .lane { display: grid; grid-template-columns: 200px minmax(0, 1fr) 104px; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+  .lane select { width: 100%; font: 500 14px var(--body); padding: 8px 10px; }
+  .lane .who { font-size: 14px; color: var(--muted); }
+  .lane .who b { display: block; color: var(--silk); font-weight: 600; }
+  .track { position: relative; }
+  .rail { height: 4px; background: var(--line); border-radius: 2px; position: relative; overflow: visible; }
+  .signal { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 2px; background: var(--copper); }
+  .signal::after { content: ""; position: absolute; right: -5px; top: -4px; width: 12px; height: 12px; border-radius: 50%;
+                   background: var(--copper-hi); box-shadow: 0 0 12px var(--copper-hi); opacity: 0; }
+  .lane.running .signal::after { opacity: 1; }
+  .lane.done .signal { background: var(--gold); }
+  .stream { margin-top: 9px; height: 2.9em; overflow: hidden; font-size: 13.5px; line-height: 1.45; color: var(--muted);
+            display: flex; align-items: flex-end; -webkit-mask-image: linear-gradient(transparent, #000 45%); mask-image: linear-gradient(transparent, #000 45%); }
+  .stream span { display: block; }
+  .lane-stat { text-align: right; }
+  .lane-stat b { display: block; font: 700 20px var(--display); font-stretch: 105%; }
+  .lane-stat small { color: var(--dim); font-size: 12px; }
+  .place { font-size: 12px; font-weight: 700; color: var(--gold); }
+  .lane.human select, .lane.human .who b { color: var(--muted); }
+  .race-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 10px; color: var(--dim); font-size: 13px; }
+
+  /* will it run */
+  .layout { display: grid; grid-template-columns: clamp(260px, 22vw, 320px) minmax(0, 1fr); gap: 40px; align-items: start; margin-top: 28px; }
+  .sidebar { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 22px; background: var(--panel);
+             border: 1px solid var(--line); border-radius: 16px; padding: 22px; box-shadow: var(--raise); max-height: calc(100vh - 100px); overflow-y: auto; }
+  .mem-controls { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px; box-shadow: var(--raise); }
+  .side-group h4 { font: 600 14px var(--body); color: var(--muted); margin-bottom: 9px; }
+  .side-group .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .search { width: 100%; border-radius: 999px; }
+  .legend { font-size: 14px; color: var(--muted); line-height: 1.5; border-left: 2px solid var(--copper); padding-left: 12px; }
+  .legend p + p { margin-top: 6px; }
+  .accuracy { font-size: 14px; color: var(--muted); }
+  .accuracy b { color: var(--silk); }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-bottom: 20px; box-shadow: var(--raise); }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 22px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  .card-head h3 { font: 650 16px var(--body); }
+  .card-head span { color: var(--dim); font-size: 14px; }
+  .row { position: relative; display: grid; grid-template-columns: minmax(260px, 1.35fr) minmax(170px, 1fr) minmax(200px, 1fr) 140px; gap: 28px; align-items: center;
+         padding: 18px 22px; border-bottom: 1px solid var(--line); transition: background .15s; }
+  .row:last-child { border-bottom: 0; }
+  .row::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0;
+                 background: var(--copper); transform: scaleY(0); transition: transform .2s; }
+  .row:hover { background: rgba(255,255,255,.025); }
+  .row:hover::before { transform: scaleY(1); }
+  .row:hover .meter { border-color: var(--line-2); box-shadow: 0 0 14px rgba(217,145,63,.15); }
+  .model { font: 650 18px var(--body); }
+  .made { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .cmd { font: 500 12.5px var(--code); color: var(--muted); background: rgba(0,0,0,.25); padding: 1px 7px; border-radius: 5px; word-break: break-all; }
+  .stat-label { font-size: 13px; color: var(--dim); margin-bottom: 6px; }
+  .stat-main { font-size: 15px; color: var(--silk); margin-top: 7px; line-height: 1.35; }
+  .stat-main small { display: block; color: var(--dim); font-size: 13px; }
+  .cap { height: 12px; border-radius: 99px; background: #0b221d; border: 1px solid var(--line-2); overflow: hidden; }
+  .cap-fill { height: 100%; border-radius: 99px; background: var(--fast); transition: width .5s; }
+  .cap.tight .cap-fill { background: var(--ok); }
+  .cap.over .cap-fill { background: repeating-linear-gradient(135deg, var(--slow) 0 6px, #c94a4a 6px 12px); }
+  .bars { display: inline-flex; align-items: flex-end; gap: 4px; height: 24px; }
+  .bars i { width: 9px; border-radius: 2px; background: var(--line-2); }
+  .bars i:nth-child(1) { height: 30%; } .bars i:nth-child(2) { height: 47%; } .bars i:nth-child(3) { height: 64%; }
+  .bars i:nth-child(4) { height: 82%; } .bars i:nth-child(5) { height: 100%; }
+  .verdict-big { display: inline-block; font: 750 17px var(--display); font-stretch: 105%; padding: 5px 14px; border-radius: 8px; color: #10201c; }
+  .model a { color: var(--silk); text-decoration: none; }
+  .model a:hover { color: var(--copper-hi); text-decoration: underline; text-underline-offset: 3px; }
+  .desc { color: var(--muted); font-size: 14px; margin-top: 3px; max-width: 34em; }
+  .tags { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .use { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; border: 1px solid; }
+  .spec { font-size: 13px; color: var(--dim); }
+  .actions { display: flex; gap: 6px; margin-top: 12px; align-items: center; opacity: .72; transition: opacity .15s; }
+  .row:hover .actions, .row:focus-within .actions { opacity: 1; }
+  .actions .btn { padding: 5px 10px; font-size: 13px; }
+  .installed { font-size: 13px; color: var(--fast); font-weight: 600; }
+  .meter { position: relative; height: 10px; background: #0a1e1a; border-radius: 99px; border: 1px solid var(--line); transition: box-shadow .2s, border-color .2s; }
+  .fill { position: absolute; inset: 0 auto 0 0; border-radius: 99px; transition: width .9s cubic-bezier(.2,.8,.2,1); }
+  .band { position: absolute; top: 0; bottom: 0; border-radius: 99px; opacity: .4; }
+  .dot { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--silk); border: 2px solid var(--board); }
+  .read-line { position: absolute; top: -5px; bottom: -5px; width: 2px; background: var(--dim); }
+  .meter-sub { display: flex; gap: 16px; margin-top: 10px; font-size: 14px; color: var(--muted); flex-wrap: wrap; }
+  .meter-sub b { color: var(--silk); font-weight: 600; }
+  .fit-yes { color: var(--fast); } .fit-no { color: var(--slow); } .warn { color: var(--usable); }
+  .score { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .score .kind { font-size: 13px; color: var(--dim); }
+  .score .kind.measured { color: var(--gold); font-weight: 600; }
+  .score b { display: block; font: 750 32px/1.1 var(--display); font-stretch: 105%; }
+  .score small { color: var(--dim); font-size: 13px; display: block; margin-bottom: 6px; }
+  .more { width: 100%; padding: 16px; background: none; border: 0; color: var(--muted); font: 500 15px var(--body); cursor: pointer; }
+  .more:hover { color: var(--copper-hi); }
+  .nomatch { padding: 40px; text-align: center; color: var(--muted); }
+  .job { margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .job .meter { height: 6px; margin-top: 6px; }
+  .job.err { color: var(--slow); }
+
+  /* memory visualizer */
+  .mem { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 40px; margin-top: 28px; align-items: start; }
+  .mem-controls { display: flex; flex-direction: column; gap: 24px; }
+  .mem-controls label { display: flex; justify-content: space-between; font-size: 15px; color: var(--muted); margin-bottom: 8px; }
+  .mem-controls label b { color: var(--silk); font-weight: 600; }
+  .mem-controls select { width: 100%; font-family: var(--code); font-size: 14px; }
+  .hint { font-size: 14px; color: var(--dim); margin-top: 6px; }
+  input[type=range] { width: 100%; accent-color: var(--copper); cursor: pointer; }
+  .board { background: radial-gradient(circle at 30% 20%, #1d4a40, #15362f 70%); border: 1px solid var(--line-2); border-radius: 18px; padding: 28px; box-shadow: var(--raise); }
+  .readout { font: 700 clamp(22px, 2vw, 30px)/1.2 var(--display); font-stretch: 108%; margin-bottom: 6px; }
+  .readout-sub { color: var(--muted); margin-bottom: 24px; }
+  .boards { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 28px; align-items: end; }
+  .vram-title, .ram-title { font-size: 14px; color: var(--muted); margin-bottom: 10px; }
+  .chips { display: grid; gap: 10px; }
+  .vchip { position: relative; aspect-ratio: 1 / 1.15; background: #0b221d; border: 1px solid var(--line-2); border-radius: 6px; overflow: hidden; }
+  .vchip::before { content: ""; position: absolute; inset: -1px; border-radius: 6px; pointer-events: none; z-index: 2;
+    background: repeating-linear-gradient(90deg, transparent 0 6px, rgba(233,196,106,.35) 6px 8px) top / 100% 3px no-repeat,
+                repeating-linear-gradient(90deg, transparent 0 6px, rgba(233,196,106,.35) 6px 8px) bottom / 100% 3px no-repeat; }
+  .vchip .lyr { position: absolute; left: 0; right: 0; transition: height .5s cubic-bezier(.2,.8,.2,1), bottom .5s cubic-bezier(.2,.8,.2,1); }
+  .vchip span { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 11px; color: rgba(238,244,239,.55); z-index: 3; }
+  .ram { height: 64px; background: #0a1c18; border: 1px solid var(--line-2); border-radius: 4px; position: relative; overflow: hidden; }
+  .ram::after { content: ""; position: absolute; bottom: -1px; left: 58%; width: 8px; height: 10px; background: var(--board); border: 1px solid var(--line-2); border-bottom: 0; }
+  .ram .lyr { position: absolute; top: 0; bottom: 0; left: 0; background: repeating-linear-gradient(135deg, var(--slow) 0 6px, #c94a4a 6px 12px); transition: width .5s; }
+  .ram-note { font-size: 13px; color: var(--dim); margin-top: 8px; }
+  .mem-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 22px; font-size: 14px; color: var(--muted); }
+  .mem-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+  /* results */
+  .results-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+  .filter { display: flex; gap: 6px; flex-wrap: wrap; }
+  #list { display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 24px; }
+  #list .card { margin: 0; }
+  #list .row { grid-template-columns: minmax(260px, 1.35fr) minmax(170px, 1fr) minmax(200px, 1fr) 140px; }
+  .empty { grid-column: 1 / -1; border: 1px dashed var(--line-2); border-radius: 16px; padding: 48px; text-align: center; color: var(--muted); }
+  footer { margin: 80px 0 48px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--dim); font-size: 14px; line-height: 1.7; max-width: 60em; }
+  code { font-family: var(--code); font-size: .92em; color: var(--copper-hi); }
+
+  /* compare tray, modals */
+  .tray { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 160%); transition: transform .3s cubic-bezier(.2,.8,.2,1);
+          background: var(--panel-2); border: 1px solid var(--copper); border-radius: 14px; padding: 10px 10px 10px 18px;
+          display: flex; gap: 10px; align-items: center; box-shadow: 0 20px 50px rgba(0,0,0,.5); z-index: 10; }
+  .tray.show { transform: translate(-50%, 0); }
+  .modal { position: fixed; inset: 0; background: rgba(4,14,12,.8); backdrop-filter: blur(4px); display: none;
+           align-items: flex-start; justify-content: center; padding: 60px 20px; z-index: 20; overflow: auto; }
+  .modal.show { display: flex; }
+  .sheet { background: var(--panel); border: 1px solid var(--line-2); border-radius: 18px; width: 100%; max-width: 1000px; overflow: hidden; }
+  .sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px 24px; border-bottom: 1px solid var(--line); }
+  .sheet-head h2 { font-size: 22px; margin: 0; }
+  .sheet-body { padding: 24px; }
+  .cmp { width: 100%; border-collapse: collapse; }
+  .cmp th, .cmp td { padding: 14px 18px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .cmp th { color: var(--muted); font-weight: 500; width: 170px; }
+  .cmp thead td { font: 600 14px var(--code); word-break: break-all; }
+  .cmp td.best { color: var(--gold); font-weight: 600; }
+  .cmp small { display: block; color: var(--dim); font-size: 13px; margin-top: 3px; font-weight: 400; }
+  .share-canvas { width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); display: block; }
+  .share-actions { display: flex; gap: 10px; margin-top: 16px; align-items: center; }
+
+  .intro { margin-top: 18px; color: var(--muted); font-size: 16px; max-width: 34em; padding-left: 14px; border-left: 2px solid var(--copper); }
+  .intro b { color: var(--silk); }
+  .topbar .btn { margin-left: 6px; }
+
+  @media (max-width: 1100px) {
+    .hero, .layout, .mem { grid-template-columns: 1fr; }
+    .sidebar { position: static; }
+    .topbar nav { display: none; }
+  }
+  @media (max-width: 720px) {
+    .topbar { flex-wrap: wrap; gap: 10px; }
+    .topbar .status { order: 3; width: 100%; margin-left: 0; justify-content: flex-start; font-size: 13px; }
+    #top-share { margin-left: auto; }
+    .row, #list .row { grid-template-columns: 1fr 1fr; gap: 16px; }
+    .row > :first-child { grid-column: 1 / -1; }
+    .score { text-align: left; align-items: flex-start; }
+    .lane { grid-template-columns: 1fr 80px; }
+    .lane .track { grid-column: 1 / -1; grid-row: 2; }
+    .boards { grid-template-columns: 1fr; }
+    .actions { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="traces" id="traces" aria-hidden="true"></div>
+<div class="traces-lit" id="traces-lit" aria-hidden="true"></div>
+
+<div class="page">
+  <header class="topbar">
+    <a class="brand" href="#top"><span class="chip-icon" aria-hidden="true"></span>LLM Bench</a>
+    <nav aria-label="Sections">
+      <a href="#run">Will it run?</a>
+      <a href="#memory">Memory</a>
+      <a href="#results">Results</a>
+    </nav>
+    <div class="status" id="status"></div>
+    <button class="btn" id="top-share" hidden>Share my results</button>
+  </header>
+  <div class="wrap"><div class="alert" id="alert" role="alert"></div></div>
+
+  <div class="wrap" id="top">
+    <section class="hero">
+      <div>
+        <h1>What can your GPU actually run?</h1>
+        <p class="lede" style="margin-top:22px">Check which AI models your PC can run, and how fast, before you download them.</p>
+        <p class="intro"><b>New to this?</b> These are chatbots like ChatGPT, but they run on your own computer instead of the cloud. Your graphics card decides which ones run well.</p>
+        <div class="hero-gpu">
+          <label for="gpu-select">Your graphics card</label>
+          <select id="gpu-select"><option value="">Choose your graphics card...</option></select>
+          <div class="gpu-meta" id="gpu-meta"></div>
+        </div>
+      </div>
+      <div class="race" id="race" aria-label="Speed race">
+        <div class="race-head">
+          <div>
+            <h3>Speed race</h3>
+            <p>The same paragraph, written at each model's speed on <span id="race-gpu">your GPU</span>.</p>
+          </div>
+          <button class="btn primary" id="race-go">Start race</button>
+        </div>
+        <div id="lanes"></div>
+        <div class="race-foot"><span id="race-note"></span><button class="btn" id="race-reset">Reset</button></div>
+      </div>
+    </section>
+
+    <section class="block" id="run">
+      <h2>Will it run?</h2>
+      <p class="sub">Sorted by whether they fit in your GPU's memory. Speeds are measured where possible and estimated otherwise.</p>
+      <div class="layout">
+        <aside class="sidebar">
+          <div class="legend">
+            <p><b>Memory</b> shows how much of your graphics card a model fills. If it doesn't fit, it still runs, but slowly.</p>
+            <p><b>Speed</b> shows how long a typical answer takes. More bars means faster.</p>
+            <p><b>Bigger models</b> (more "B", billions of parameters) are usually smarter but slower.</p>
+          </div>
+          <div class="accuracy" id="accuracy"></div>
+          <div class="side-group"><h4>Sort</h4><div class="opts" id="sort"></div></div>
+          <div class="side-group"><h4>What do you want to use it for?</h4><p class="hint" style="margin:-4px 0 10px">Pick one or more.</p><input class="search" id="search" placeholder="Search models" aria-label="Search models"><div class="opts" id="tags" style="margin-top:10px"></div></div>
+        </aside>
+        <main id="pred" aria-live="polite"></main>
+      </div>
+    </section>
+
+    <section class="block" id="memory">
+      <h2>Where does the memory go?</h2>
+      <p class="sub">A model needs memory for its weights plus a <span class="term" title="Memory the model uses to keep track of the conversation">KV cache</span> that grows with the conversation. Change the compression or context length to see what fits.</p>
+      <div class="mem">
+        <div class="mem-controls">
+          <div><label for="mem-model">Model</label><select id="mem-model"></select></div>
+          <div>
+            <label for="mem-quant"><span>Compression</span><b id="mem-quant-label"></b></label>
+            <input type="range" id="mem-quant" min="0" max="6" step="1" value="2">
+            <div class="hint" id="mem-quant-hint"></div>
+          </div>
+          <div>
+            <label for="mem-ctx"><span>Context length</span><b id="mem-ctx-label"></b></label>
+            <input type="range" id="mem-ctx" min="0" max="6" step="1" value="2">
+            <div class="hint" id="mem-ctx-hint"></div>
+          </div>
+        </div>
+        <div class="board" id="board">
+          <div class="readout" id="mem-readout">Pick a graphics card first.</div>
+          <div class="readout-sub" id="mem-readout-sub"></div>
+          <div class="boards">
+            <div><div class="vram-title" id="vram-title"></div><div class="chips" id="chips"></div></div>
+            <div><div class="ram-title">System RAM</div><div class="ram"><div class="lyr" id="ram-fill"></div></div><div class="ram-note" id="ram-note"></div></div>
+          </div>
+          <div class="mem-legend">
+            <span><i style="background:var(--weights)"></i>Model weights</span>
+            <span><i style="background:var(--kv)"></i>KV cache</span>
+            <span><i style="background:var(--runtime)"></i>Runtime</span>
+            <span><i style="background:var(--slow)"></i>Didn't fit</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="results">
+      <div class="results-head">
+        <div>
+          <h2>Measured results</h2>
+          <p class="sub" id="results-sub">Benchmarks run on real PCs.</p>
+        </div>
+        <div class="filter" id="filter"></div>
+      </div>
+      <div id="list"></div>
+    </section>
+
+    <footer>
+      Each result is the average of 9 runs. Estimates are based on GPU memory bandwidth and calibrated against real results.
+      To test your own PC, download the project and run <code>LLM Bench.bat</code>.
+    </footer>
+  </div>
+</div>
+
+<div class="tray" id="tray" aria-live="polite">
+  <span id="tray-text"></span>
+  <button class="btn" id="tray-clear">Clear</button>
+  <button class="btn primary" id="tray-go">Compare</button>
+</div>
+
+<div class="modal" id="cmp-modal" role="dialog" aria-modal="true" aria-labelledby="cmp-title">
+  <div class="sheet">
+    <div class="sheet-head"><h2 id="cmp-title">Compare</h2>
+      <div style="display:flex;gap:8px"><button class="btn primary" id="cmp-race">Race these</button><button class="btn" data-close>Close</button></div></div>
+    <div style="overflow-x:auto"><table class="cmp" id="cmp"></table></div>
+  </div>
+</div>
+
+<div class="modal" id="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-title">
+  <div class="sheet" style="max-width:860px">
+    <div class="sheet-head"><h2 id="share-title">Share your results</h2><button class="btn" data-close>Close</button></div>
+    <div class="sheet-body">
+      <canvas id="share-canvas" class="share-canvas" width="1200" height="630"></canvas>
+      <div class="share-actions">
+        <button class="btn primary" id="share-download">Download image</button>
+        <button class="btn" id="share-copy">Copy image</button>
+        <span id="share-msg" style="color:var(--muted);font-size:14px"></span>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// shared helpers
+// same thresholds as bench.py
+const VERDICTS = [
+  { min: 30, label: "Fast",        color: "var(--fast)",   hex: "#7ee0a7" },
+  { min: 15, label: "Comfortable", color: "var(--ok)",     hex: "#e9c46a" },
+  { min: 7,  label: "Usable",      color: "var(--usable)", hex: "#f28c5b" },
+  { min: 0,  label: "Slow",        color: "var(--slow)",   hex: "#ef5b5b" },
+];
+const verdict = tps => VERDICTS.find(v => tps >= v.min);
+const READING_TPS = 6;
+const MAX_COMPARE = 4;
+const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const TAG_COLORS = {
+  "Chat": "#9cc3ff", "Coding": "#7ee0c9", "Reasoning": "#c9a8ff", "Vision": "#f2b36b",
+  "Writing": "#ff9fbf", "Multilingual": "#8fd8f0", "Tool use": "#d6e37a",
+};
+const fmt = v => v == null ? "-" : v < 10 ? v.toFixed(1) : String(Math.round(v));
+const $ = id => document.getElementById(id);
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const TAG_LABELS = {
+  "Chat": "Everyday chat", "Coding": "Programming", "Reasoning": "Math & logic", "Vision": "Understands images",
+  "Writing": "Writing", "Multilingual": "Other languages", "Tool use": "Works with apps",
+};
+const tagLabel = t => TAG_LABELS[t] || t;
+const tagPill = t => `<span class="use" style="color:${TAG_COLORS[t] || "var(--muted)"};border-color:${TAG_COLORS[t] || "#6f8c82"}55">${esc(tagLabel(t))}</span>`;
+
+// ~300 words is ~400 tokens
+const ANSWER_TOKENS = 400;
+function answerTime(tps) {
+  const s = ANSWER_TOKENS / tps;
+  if (s < 1.5) return "about a second";
+  if (s < 60) return `about ${Math.round(s)} seconds`;
+  const m = Math.round(s / 60);
+  return `about ${m} minute${m > 1 ? "s" : ""}`;
+}
+const speedBars = tps => tps >= 30 ? 5 : tps >= 15 ? 4 : tps >= 7 ? 3 : tps >= 3 ? 2 : 1;
+function speedCell(tps, measured) {
+  const v = verdict(tps), n = speedBars(tps);
+  return `<div><div class="stat-label">Speed</div>
+    <span class="bars" title="${n} of 5">${[1, 2, 3, 4, 5].map(i => `<i style="${i <= n ? `background:${v.color}` : ""}"></i>`).join("")}</span>
+    <div class="stat-main">A 300-word answer in ${answerTime(tps)}
+      <small>${measured ? "Measured" : "Predicted"}: ${measured ? "" : "~"}${fmt(tps)} tokens per second</small></div></div>`;
+}
+function memCell(need, total, fits) {
+  const pct = Math.min(100, 100 * need / total);
+  const cls = !fits ? "over" : pct > 85 ? "tight" : "";
+  return `<div><div class="stat-label">Memory</div>
+    <div class="cap ${cls}"><div class="cap-fill" style="width:${pct}%"></div></div>
+    <div class="stat-main">${fits ? `Uses ${need} of ${total} GB` : `<span class="fit-no">Needs ${need} GB, has ${total}</span>`}
+      <small>${fits ? (pct > 85 ? "Fits, but it's a tight squeeze" : "Fits comfortably") : "Too big: part of it runs from slower system memory"}</small></div></div>`;
+}
+
+function ollamaUrl(name) {
+  const base = name.split(":")[0];
+  return base.includes("/") ? `https://ollama.com/${base}` : `https://ollama.com/library/${name}`;
+}
+
+const api = async (url, opts) => {
+  const r = await fetch(url, opts);
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || `Request to ${url} failed (${r.status})`);
+  return body;
+};
+const post = (url, data) => api(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+
+// state
+const state = {
+  results: [], gpus: [], local: { local: false }, acc: {}, categories: [],
+  gpu: "", pred: null, compare: new Set(), jobs: {}, showAll: false,
+  tags: new Set(), query: "", installedOnly: false, sort: "capable", resultsFilter: "All",
+};
+const isInstalled = name => state.local.installed?.includes(name);
+const shownSpeed = m => m.measured ?? m.tokens_per_sec;
+const findModel = name => state.pred?.models.find(m => m.model === name);
+
+// background traces
+function traceTile(color) {
+  const paths = [
+    "M0 40 H90 L120 70 H280", "M40 0 V60 L70 90 V180 L100 210 H200", "M280 150 H210 L180 180 V280",
+    "M140 0 V30 L160 50 H230 L250 30 V0", "M0 230 H60 L90 260 V280", "M200 210 L230 240 H280", "M120 120 H170 L190 140 V200",
+  ];
+  const vias = [[90, 40], [200, 210], [170, 120], [190, 200], [60, 230], [230, 50]];
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280' fill='none' stroke='${color}' stroke-width='2'>` +
+    paths.map(d => `<path d='${d}'/>`).join("") + vias.map(([x, y]) => `<circle cx='${x}' cy='${y}' r='4'/>`).join("") + `</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+$("traces").style.backgroundImage = traceTile("#9fd1c2");
+$("traces-lit").style.backgroundImage = traceTile("#f0b061");
+{
+  // update at most once per frame
+  let queued = false, x = -999, y = -999;
+  addEventListener("pointermove", e => {
+    x = e.clientX; y = e.clientY;
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      $("traces-lit").style.setProperty("--mx", x + "px");
+      $("traces-lit").style.setProperty("--my", y + "px");
+      queued = false;
+    });
+  });
+}
+
+// top bar status
+function renderStatus() {
+  const L = state.local;
+  if (!L.local) {
+    $("status").innerHTML = `<span><span class="led off"></span>Viewing online. Download LLM Bench to test your own PC.</span>`;
+    return;
+  }
+  const gpu = L.gpu_detected ? `<span>Detected <b>${esc(L.gpu_detected)}</b></span>` : `<span class="warn">GPU not detected; pick it below</span>`;
+  const ollama = L.ollama_running
+    ? `<span title="Ollama keeps downloaded models in ${esc(L.models_dir)}"><span class="led"></span>Ollama connected, <b>${L.installed.length}</b> installed</span>`
+    : `<span><span class="led off"></span>Ollama isn't running. <a href="https://ollama.com/download" target="_blank" rel="noopener">Get Ollama</a></span>`;
+  $("status").innerHTML = gpu + ollama;
+}
+
+function showError(e) {
+  $("alert").innerHTML = `<b>Couldn't load data from the server.</b> ${esc(e.message)}. Close every LLM Bench window and double-click <b>LLM Bench.bat</b> again.`;
+  $("alert").classList.add("show");
+  console.error(e);
+}
+
+// gpu picker
+function renderGpuSelect() {
+  const brand = n => n.startsWith("RTX") || n.startsWith("GTX") ? "NVIDIA" : n.startsWith("RX") ? "AMD" : "Intel";
+  const opt = g => `<option value="${esc(g.name)}" ${g.name === state.gpu ? "selected" : ""}>${esc(g.name)}, ${g.vram_gb} GB</option>`;
+  $("gpu-select").innerHTML = `<option value="">Choose your graphics card...</option>` +
+    ["NVIDIA", "AMD", "Intel"].map(b => `<optgroup label="${b}">${state.gpus.filter(g => brand(g.name) === b).map(opt).join("")}</optgroup>`).join("");
+}
+// localStorage can throw (private mode etc.)
+const savedGpu = { get: () => { try { return localStorage.getItem("llmbench.gpu") || ""; } catch { return ""; } },
+                   set: v => { try { localStorage.setItem("llmbench.gpu", v); } catch {} } };
+$("gpu-select").onchange = async e => {
+  state.gpu = e.target.value; state.compare.clear(); state.showAll = false;
+  savedGpu.set(state.gpu);
+  resetRace();
+  await loadPredictions();
+};
+
+function renderNoGpu() {
+  const L = state.local;
+  const hint = L.local && L.gpu_detected
+    ? `We found <b>${esc(L.gpu_detected)}</b> but don't have its specs yet. Pick the closest card from the list.`
+    : "Pick your graphics card to get started.";
+  $("gpu-meta").innerHTML = hint;
+  const help = `<p class="sub" style="margin-top:6px">Not sure which one you have? On Windows, open <b>Task Manager</b>, go to <b>Performance</b>, and look under <b>GPU</b>.</p>`;
+  $("lanes").innerHTML = `<div style="padding:28px 0 8px"><p style="font-size:18px">${hint}</p>${help}</div>`;
+  $("race-go").hidden = $("race-reset").hidden = true;
+  $("race-note").textContent = "";
+  $("pred").innerHTML = `<div class="card"><div class="nomatch">Choose your graphics card at the top of the page to see which models it can run.</div></div>`;
+  $("sort").innerHTML = $("tags").innerHTML = $("accuracy").innerHTML = "";
+  $("mem-readout").textContent = "Choose your graphics card at the top of the page first.";
+}
+
+async function loadPredictions() {
+  if (!state.gpu) { state.pred = null; renderNoGpu(); return; }
+  $("race-go").hidden = $("race-reset").hidden = false;
+  state.pred = await api("/api/predictions?gpu=" + encodeURIComponent(state.gpu));
+  const g = state.pred.gpu;
+  $("gpu-meta").textContent = `${g.vram_gb} GB of graphics memory, ${g.bandwidth_gbs} GB/s memory speed`;
+  $("race-gpu").textContent = g.name;
+  renderPredictions();
+  renderResults();
+  renderLanes();
+  renderMemoryControls();
+}
+
+// will it run?
+const GROUPS = [
+  ["fits", "Fits in graphics memory"],
+  ["spills", "Too big, but still usable"],
+  ["toobig", "Too big to run well"],
+];
+const groupOf = m => m.fits ? "fits" : shownSpeed(m) >= 5 ? "spills" : "toobig";
+const SORTS = {
+  capable: [(a, b) => (b.params_b || 0) - (a.params_b || 0), "Most capable"],
+  fastest: [(a, b) => shownSpeed(b) - shownSpeed(a), "Fastest"],
+  smallest: [(a, b) => (a.size_gb || 0) - (b.size_gb || 0), "Smallest download"],
+};
+
+function renderSidebar() {
+  const A = state.acc;
+  $("accuracy").innerHTML = A.mean_error_pct == null
+    ? "Accuracy appears here once a few models have been tested on real PCs."
+    : `Predictions have been within about <b>${Math.max(1, Math.round(A.mean_error_pct))}%</b> of real measurements so far.`;
+  $("sort").innerHTML = Object.entries(SORTS).map(([k, [, label]]) =>
+    `<button class="chip ${state.sort === k ? "on" : ""}" data-sort="${k}">${label}</button>`).join("");
+  // count = models left if this tag is added
+  const ms = state.pred.models;
+  const matches = (m, tags) => [...tags].every(t => m.tags.includes(t));
+  const countWith = t => ms.filter(m => matches(m, new Set([...state.tags, t]))).length;
+  $("tags").innerHTML =
+    `<button class="chip ${state.tags.size ? "" : "on"}" data-tag="">Anything<span class="n">${ms.length}</span></button>` +
+    state.categories.map(t => {
+      const n = state.tags.has(t) ? null : countWith(t);
+      return `<button class="chip ${state.tags.has(t) ? "on" : ""}" data-tag="${esc(t)}" ${n === 0 ? "disabled title='No model does this together with your other picks'" : ""}>${esc(tagLabel(t))}<span class="n">${n ?? ""}</span></button>`;
+    }).join("") +
+    (state.local.local && state.local.ollama_running
+      ? `<button class="chip ${state.installedOnly ? "on" : ""}" data-inst="1">Installed only</button>` : "");
+}
+
+function renderPredictions() {
+  if (!state.pred) return;
+  renderSidebar();
+  const p = state.pred;
+  const q = state.query.trim().toLowerCase();
+  const visible = p.models.filter(m =>
+    [...state.tags].every(t => m.tags.includes(t)) &&
+    (!q || [m.model, m.display, m.desc, m.maker].join(" ").toLowerCase().includes(q)) &&
+    (!state.installedOnly || isInstalled(m.model)));
+  visible.sort(SORTS[state.sort][0]);
+
+  let html = visible.length ? "" : `<div class="card"><div class="nomatch">No model is good at all of those. Remove a use or clear the search.</div></div>`;
+  for (const [key, title] of GROUPS) {
+    const ms = visible.filter(m => groupOf(m) === key);
+    if (!ms.length) continue;
+    const collapsed = key === "toobig" && !state.showAll;
+    html += `<div class="card"><div class="card-head"><h3>${title}</h3><span>${ms.length} model${ms.length > 1 ? "s" : ""}</span></div>`;
+    html += collapsed
+      ? `<button class="more" data-act="showall">Show ${ms.length} models that are too big for this GPU</button>`
+      : ms.map(predRow).join("");
+    html += `</div>`;
+  }
+  $("pred").innerHTML = html;
+  renderTray();
+}
+
+function predRow(m) {
+  const shown = shownSpeed(m), v = verdict(shown), measured = m.measured != null;
+  return `
+    <div class="row">
+      <div>
+        <div class="model">${esc(m.display || m.model)}</div>
+        <div class="made">${m.maker ? `By ${esc(m.maker)}. ` : ""}${esc(m.desc)}${m.maker ? "." : ""}</div>
+        <div class="tags">${m.tags.map(tagPill).join("")}
+          <a class="cmd" href="${ollamaUrl(m.model)}" target="_blank" rel="noopener" title="Its name in Ollama; opens its page">${esc(m.model)}</a>
+          ${m.moe ? `<span class="spec term" title="Mixture of Experts: only part of the model works on each word, so it runs faster than its size suggests">Runs faster than its size</span>` : ""}
+        </div>
+        ${actions(m)}${jobView(m.model)}
+      </div>
+      ${memCell(m.needs_gb, state.pred.gpu.vram_gb, m.fits)}
+      ${speedCell(shown, measured)}
+      <div class="score"><span class="verdict-big" style="background:${v.color}">${v.label}</span>
+        <small>${m.confidence === "rough" && !measured ? "Rough estimate" : measured ? "Tested on a real PC" : "Estimate"}</small></div>
+    </div>`;
+}
+
+function actions(m) {
+  const name = esc(m.model), picked = state.compare.has(m.model);
+  let html = `<div class="actions">
+    <button class="btn ${picked ? "on" : ""}" data-act="compare" data-m="${name}">${picked ? "Comparing" : "Compare"}</button>
+    <button class="btn" data-act="copy" data-m="${name}" title="Copy the command that downloads and runs this model">Copy command</button>`;
+  if (state.local.local && state.local.ollama_running) {
+    const busy = Object.values(state.jobs).some(j => j.status === "running");
+    html += isInstalled(m.model)
+      ? `<span class="installed">Installed</span>
+         <button class="btn" data-act="benchmark" data-m="${name}" ${busy ? "disabled" : ""}>${m.measured != null ? "Benchmark again" : "Benchmark"}</button>
+         <button class="btn danger" data-act="remove" data-m="${name}" ${busy ? "disabled" : ""} title="Delete from disk to free space">Remove</button>`
+      : `<button class="btn" data-act="pull" data-m="${name}" ${busy ? "disabled" : ""}>Download${m.size_gb ? `, ${m.size_gb} GB` : ""}</button>`;
+  }
+  return html + `</div>`;
+}
+
+function jobView(model) {
+  const j = state.jobs[model];
+  if (!j) return "";
+  if (j.status === "error") return `<div class="job err">${esc(j.message)}</div>`;
+  if (j.status === "done") return `<div class="job">${j.kind === "pull" ? `Downloaded. ${esc(j.message)}.` : "Benchmark saved to Measured results."}</div>`;
+  return `<div class="job">${j.kind === "pull" ? "Downloading" : "Benchmarking"}: ${esc(j.message)} (${j.progress}%)
+    <div class="meter"><div class="fill" style="width:${j.progress}%;background:var(--copper)"></div></div></div>`;
+}
+
+async function startJob(kind, model) {
+  try {
+    const job = await post(`/api/local/${kind}`, { model });
+    state.jobs[model] = job;
+    renderPredictions();
+    pollJob(model, job.id);
+  } catch (e) { state.jobs[model] = { status: "error", message: e.message }; renderPredictions(); }
+}
+
+function pollJob(model, id) {
+  const timer = setInterval(async () => {
+    const job = await api(`/api/local/jobs/${id}`).catch(() => null);
+    if (!job) return;
+    state.jobs[model] = job;
+    if (job.status !== "running") { clearInterval(timer); await refreshAll(); }
+    else renderPredictions();
+  }, 800);
+}
+
+// speed race
+const RACE_TEXT = "A language model writes one small piece of a word at a time. For every piece, your graphics card reads the whole model out of its memory, so memory speed matters more than raw computing power. A model that fits in graphics memory streams text smoothly. One that doesn't fit has to use slower system memory, and every word has to wait for it. That's why this page cares so much about model size and how much memory your card has.";
+// ~4 characters per token, close enough for the animation
+const RACE_TOKENS = RACE_TEXT.match(/\s*[^\s]{1,4}/g);
+const race = { lanes: [], raf: null, t0: 0, autoplayed: false, running: false };
+
+function defaultLanes() {
+  const ms = state.pred.models;
+  const bySize = [...ms].sort((a, b) => (b.params_b || 0) - (a.params_b || 0));
+  // small/fast, biggest that runs well, one that doesn't fit
+  const capable = bySize.find(m => m.fits && m.measured != null && (m.params_b || 0) >= 4)
+    || bySize.find(m => m.fits && m.tags.includes("Chat") && shownSpeed(m) >= 15);
+  const small = ms.find(m => m.model === "llama3.2:3b") || [...ms].filter(m => m.fits).sort((a, b) => shownSpeed(b) - shownSpeed(a))[3];
+  const spill = [...ms].filter(m => !m.fits && !m.moe && m.in_catalog).sort((a, b) => (a.params_b || 0) - (b.params_b || 0))[0];
+  return [small, capable, spill].filter(Boolean).map(m => m.model);
+}
+
+function renderLanes() {
+  if (!state.pred) return;
+  const names = new Set(state.pred.models.map(m => m.model));
+  if (!race.lanes.length || race.lanes.some(n => !names.has(n))) race.lanes = defaultLanes();
+  const options = [...state.pred.models].sort((a, b) => (a.display || a.model).localeCompare(b.display || b.model));
+  $("lanes").innerHTML = race.lanes.map((name, i) => {
+    const m = findModel(name);
+    return `
+    <div class="lane" data-lane="${i}">
+      <select data-lane-pick="${i}" aria-label="Model for lane ${i + 1}">${options.map(o =>
+        `<option value="${esc(o.model)}" ${o.model === name ? "selected" : ""}>${esc(o.display || o.model)}</option>`).join("")}</select>
+      <div class="track"><div class="rail"><div class="signal"></div></div><div class="stream"><span></span></div></div>
+      <div class="lane-stat"><b>${fmt(shownSpeed(m))}</b><small>${m.measured != null ? "tok/s measured" : "tok/s predicted"}</small><div class="place"></div></div>
+    </div>`;
+  }).join("") + `
+    <div class="lane human" data-lane="human">
+      <div class="who"><b>A person reading</b>for comparison</div>
+      <div class="track"><div class="rail"><div class="signal"></div></div><div class="stream"><span></span></div></div>
+      <div class="lane-stat"><b>${READING_TPS}</b><small>tok/s</small><div class="place"></div></div>
+    </div>`;
+  $("race-note").textContent = `${RACE_TOKENS.length}-token paragraph. Measured speeds where available, predicted otherwise.`;
+}
+
+function resetRace() {
+  cancelAnimationFrame(race.raf);
+  race.running = false;
+  $("race-go").textContent = "Start race";
+  renderLanes();
+}
+
+function startRace() {
+  if (!state.pred) return;
+  resetRace();
+  race.running = true;
+  $("race-go").textContent = "Restart race";
+  const lanes = [...document.querySelectorAll(".lane")].map(el => {
+    const human = el.dataset.lane === "human";
+    const m = human ? null : findModel(race.lanes[+el.dataset.lane]);
+    return { el, tps: human ? READING_TPS : shownSpeed(m), n: -1, finish: null,
+             signal: el.querySelector(".signal"), text: el.querySelector(".stream span"),
+             stat: el.querySelector(".lane-stat b"), sub: el.querySelector(".lane-stat small"), place: el.querySelector(".place") };
+  });
+  lanes.forEach(l => l.el.classList.add("running"));
+  const T = RACE_TOKENS.length;
+  let finished = 0;
+  race.t0 = performance.now();
+
+  const tick = now => {
+    const elapsed = (now - race.t0) / 1000;
+    for (const l of lanes) {
+      if (l.finish != null) continue;
+      const n = Math.min(T, Math.floor(elapsed * l.tps));
+      if (n !== l.n) {
+        l.n = n;
+        l.signal.style.width = (100 * n / T) + "%";
+        l.text.textContent = RACE_TOKENS.slice(Math.max(0, n - 40), n).join("");
+      }
+      l.stat.textContent = elapsed.toFixed(1) + "s";
+      l.sub.textContent = `${n}/${T} tokens`;
+      if (n === T) {
+        l.finish = elapsed;
+        finished++;
+        l.el.classList.replace("running", "done");
+        l.place.textContent = ["1st", "2nd", "3rd", "4th"][finished - 1];
+        l.stat.textContent = elapsed.toFixed(1) + "s";
+        l.sub.textContent = `${fmt(l.tps)} tok/s`;
+      }
+    }
+    if (finished < lanes.length && race.running) race.raf = requestAnimationFrame(tick);
+    else { race.running = false; $("race-go").textContent = "Race again"; }
+  };
+  race.raf = requestAnimationFrame(tick);
+}
+$("race-go").onclick = startRace;
+$("race-reset").onclick = resetRace;
+$("lanes").addEventListener("change", e => {
+  const i = e.target.dataset.lanePick;
+  if (i == null) return;
+  race.lanes[+i] = e.target.value;
+  resetRace();
+});
+
+// memory visualizer
+const QUANTS = [
+  ["Q2_K", 3.0, "Smallest, with noticeably worse answers."],
+  ["Q3_K_M", 3.9, "Small, with some quality loss."],
+  ["Q4_K_M", 4.85, "The usual balance of size and quality, and Ollama's default."],
+  ["Q5_K_M", 5.7, "A little bigger, slightly better answers."],
+  ["Q6_K", 6.6, "Very close to the original model."],
+  ["Q8_0", 8.5, "Practically identical to the original."],
+  ["F16", 16, "The original, uncompressed model."],
+];
+const CTXS = [2048, 4096, 8192, 16384, 32768, 65536, 131072];
+const mem = { model: "", timer: null };
+
+function renderMemoryControls() {
+  const catalog = state.pred.models.filter(m => m.in_catalog).sort((a, b) => (a.params_b || 0) - (b.params_b || 0));
+  if (!catalog.some(m => m.model === mem.model)) {
+    const fits = [...catalog].filter(m => m.fits).sort((a, b) => b.params_b - a.params_b);
+    mem.model = (fits[0] || catalog[0]).model;
+  }
+  $("mem-model").innerHTML = catalog.map(m =>
+    `<option value="${esc(m.model)}" ${m.model === mem.model ? "selected" : ""}>${esc(m.display || m.model)}</option>`).join("");
+  updateMemory();
+}
+
+function updateMemory() {
+  const [qname, bits, qhint] = QUANTS[+$("mem-quant").value];
+  const ctx = CTXS[+$("mem-ctx").value];
+  $("mem-quant-label").textContent = qname;
+  $("mem-quant-hint").textContent = qhint;
+  $("mem-ctx-label").textContent = (ctx / 1024) + "K tokens";
+  $("mem-ctx-hint").textContent = `Room for about ${Math.round(ctx * 0.75).toLocaleString()} words of conversation.`;
+  // debounce slider input
+  clearTimeout(mem.timer);
+  mem.timer = setTimeout(async () => {
+    if (!state.gpu) return;
+    const e = await api(`/api/estimate?gpu=${encodeURIComponent(state.gpu)}&model=${encodeURIComponent(mem.model)}&bits=${bits}&ctx=${ctx}`).catch(err => (showError(err), null));
+    if (e) renderBoard(e, qname, ctx);
+  }, 120);
+}
+
+function renderBoard(e, qname, ctx) {
+  const vram = e.gpu.vram_gb;
+  const chipGb = vram % 2 === 0 ? 2 : 1;
+  const n = Math.round(vram / chipGb);
+  const { weights_gb: W, kv_gb: K, runtime_gb: R, total_gb: T } = e.memory;
+  const spill = Math.max(0, T - vram);
+  const v = verdict(e.tokens_per_sec);
+
+  $("mem-readout").innerHTML = spill > 0
+    ? `<span style="color:var(--slow)">${spill.toFixed(1)} GB doesn't fit.</span> It spills into system RAM.`
+    : `<span style="color:var(--fast)">Fits</span>, with ${(vram - T).toFixed(1)} GB to spare.`;
+  $("mem-readout-sub").innerHTML = `${esc(findModel(mem.model)?.display || mem.model)} at ${qname} with ${ctx / 1024}K context needs ${T.toFixed(1)} GB.
+    Expect about <b style="color:${v.color}">${fmt(e.tokens_per_sec)} tokens per second</b> (${v.label.toLowerCase()}).`;
+  $("vram-title").textContent = `${e.gpu.name} graphics memory: ${n} chips of ${chipGb} GB`;
+
+  // fill order: weights, KV cache, runtime
+  const segs = [[0, W, "var(--weights)"], [W, W + K, "var(--kv)"], [W + K, T, "var(--runtime)"]];
+  const chips = $("chips");
+  chips.style.gridTemplateColumns = `repeat(${n <= 8 ? n : Math.ceil(n / 2)}, minmax(0, 1fr))`;
+  if (chips.children.length !== n) {
+    chips.innerHTML = Array.from({ length: n }, () =>
+      `<div class="vchip">${segs.map(() => `<div class="lyr"></div>`).join("")}<span></span></div>`).join("");
+  }
+  [...chips.children].forEach((chip, i) => {
+    const a = i * chipGb, b = a + chipGb;
+    let used = 0;
+    segs.forEach(([s, t, color], j) => {
+      const lo = Math.max(a, s), hi = Math.min(b, t), amt = Math.max(0, hi - lo);
+      const lyr = chip.children[j];
+      lyr.style.background = color;
+      lyr.style.bottom = (100 * Math.max(0, lo - a) / chipGb) + "%";
+      lyr.style.height = (100 * amt / chipGb) + "%";
+      used += amt;
+    });
+    chip.querySelector("span").textContent = used > 0.05 ? `${Math.round(100 * used / chipGb)}%` : "empty";
+  });
+  const ramScale = Math.max(8, Math.ceil(spill / 8) * 8);
+  $("ram-fill").style.width = (100 * spill / ramScale) + "%";
+  $("ram-note").textContent = spill > 0 ? `${spill.toFixed(1)} GB here, read much more slowly` : "Not needed";
+}
+$("mem-quant").oninput = updateMemory;
+$("mem-ctx").oninput = updateMemory;
+$("mem-model").onchange = e => { mem.model = e.target.value; updateMemory(); };
+
+// measured results + share cards
+function renderResults() {
+  const data = state.results;
+  $("top-share").hidden = !data.length;
+  const gpus = [...new Set(data.map(r => r.gpu))];
+  $("results-sub").textContent = data.length
+    ? `${data.reduce((n, r) => n + r.submissions, 0)} benchmark results from ${gpus.length} GPU${gpus.length > 1 ? "s" : ""}.`
+    : "Real benchmarks from real PCs.";
+  if (!data.length) {
+    $("list").innerHTML = `<div class="empty">No measurements yet. Pick an installed model in Will it run? and press Benchmark.</div>`;
+    $("filter").innerHTML = "";
+    return;
+  }
+  $("filter").innerHTML = gpus.length > 1 ? ["All", ...gpus].map(g =>
+    `<button class="chip ${g === state.resultsFilter ? "on" : ""}" data-g="${esc(g)}">${esc(g)}</button>`).join("") : "";
+  const scale = Math.max(...data.map(r => r.tokens_per_sec)) * 1.1;
+  const byGpu = data.reduce((g, r) => ((g[r.gpu] ??= []).push(r), g), {});
+  $("list").innerHTML = Object.entries(byGpu)
+    .filter(([gpu]) => state.resultsFilter === "All" || gpu === state.resultsFilter)
+    .map(([gpu, rows]) => `
+      <div class="card">
+        <div class="card-head"><h3>${esc(gpu)}</h3><button class="btn" data-share="${esc(gpu)}">Share card</button></div>
+        ${rows.map(r => {
+          const v = verdict(r.tokens_per_sec);
+          const cat = state.pred?.models.find(m => m.model === r.model);
+          const gb = r.vram_bytes ? (r.vram_bytes / 1e9).toFixed(1) : null;
+          const fitsGpu = r.gpu_offload_pct == null || r.gpu_offload_pct >= 99;
+          return `
+          <div class="row">
+            <div>
+              <div class="model">${esc(cat?.display || r.model)}</div>
+              <div class="tags"><a class="cmd" href="${ollamaUrl(r.model)}" target="_blank" rel="noopener">${esc(r.model)}</a>
+                <span class="spec">${r.submissions} test${r.submissions > 1 ? "s" : ""}, starts answering ${r.ttft_ms < 150 ? "instantly" : `after ${(r.ttft_ms / 1000).toFixed(1)}s`}</span></div>
+            </div>
+            <div><div class="stat-label">On the graphics card</div>
+              <div class="cap ${fitsGpu ? "" : "over"}"><div class="cap-fill" style="width:${fitsGpu ? 100 : Math.round(r.gpu_offload_pct)}%;${fitsGpu ? "" : "background:var(--usable)"}"></div></div>
+              <div class="stat-main">${fitsGpu ? "All of it" : `Only ${Math.round(r.gpu_offload_pct)}%`}<small>${gb ? `${gb} GB of graphics memory` : ""}${fitsGpu ? "" : ", the rest in system memory"}</small></div></div>
+            ${speedCell(r.tokens_per_sec, true)}
+            <div class="score"><span class="verdict-big" style="background:${v.color}">${v.label}</span></div>
+          </div>`;}).join("")}
+      </div>`).join("");
+}
+
+// 1200x630 share image
+async function drawShareCard(gpu) {
+  await document.fonts.ready;
+  const rows = state.results.filter(r => r.gpu === gpu).sort((a, b) => b.tokens_per_sec - a.tokens_per_sec).slice(0, 4);
+  const c = $("share-canvas"), g = c.getContext("2d");
+  const W = 1200, H = 630;
+  g.fillStyle = "#0d2521"; g.fillRect(0, 0, W, H);
+  g.strokeStyle = "rgba(217,145,63,.18)"; g.lineWidth = 3;
+  for (let i = 0; i < 4; i++) {  // keep the traces in the top-right corner, clear of the numbers
+    const y = 50 + i * 48, x = 900 + (i % 2) * 50;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + 120, y); g.lineTo(x + 160, y + 40); g.lineTo(W, y + 40); g.stroke();
+    g.beginPath(); g.arc(x, y, 6, 0, Math.PI * 2); g.stroke();
+  }
+  g.strokeStyle = "#d9913f"; g.lineWidth = 4; g.strokeRect(2, 2, W - 4, H - 4);
+
+  g.fillStyle = "#d9913f"; g.fillRect(64, 60, 22, 22);
+  g.fillStyle = "#eef4ef"; g.font = "700 26px Archivo, system-ui, sans-serif"; g.fillText("LLM Bench", 100, 80);
+  g.font = "800 64px Archivo, system-ui, sans-serif"; g.fillText(gpu.length > 26 ? gpu.slice(0, 25) + "..." : gpu, 64, 170);
+  g.fillStyle = "#a7bdb4"; g.font = "400 26px Archivo, system-ui, sans-serif"; g.fillText("What my graphics card runs, measured", 64, 214);
+
+  const top = Math.max(...rows.map(r => r.tokens_per_sec));
+  rows.forEach((r, i) => {
+    const y = 290 + i * 76, v = verdict(r.tokens_per_sec);
+    g.fillStyle = "#eef4ef"; g.font = "600 26px 'IBM Plex Mono', Consolas, monospace";
+    const name = r.model.length > 30 ? r.model.slice(0, 29) + "..." : r.model;
+    g.fillText(name, 64, y);
+    g.fillStyle = "#0a1e1a"; g.fillRect(64, y + 16, 700, 14);
+    g.fillStyle = v.hex; g.fillRect(64, y + 16, Math.max(8, 700 * r.tokens_per_sec / top), 14);
+    g.font = "800 40px Archivo, system-ui, sans-serif"; g.textAlign = "right"; g.fillText(fmt(r.tokens_per_sec), 980, y + 26);
+    g.font = "500 20px Archivo, system-ui, sans-serif"; g.fillStyle = "#a7bdb4"; g.fillText("tokens/sec", 1136, y + 24);
+    g.fillStyle = v.hex; g.font = "700 20px Archivo, system-ui, sans-serif"; g.fillText(v.label, 1136, y - 4);
+    g.textAlign = "left";
+  });
+  g.fillStyle = "#6f8c82"; g.font = "400 20px Archivo, system-ui, sans-serif";
+  g.fillText("Averaged over 9 runs per model with identical settings. Test your own GPU with LLM Bench.", 64, H - 40);
+}
+async function openShare(gpu) {
+  $("share-msg").textContent = "";
+  $("share-modal").classList.add("show");
+  $("share-modal").dataset.gpu = gpu;
+  await drawShareCard(gpu);
+}
+$("share-download").onclick = () => {
+  const a = document.createElement("a");
+  a.download = `llm-bench-${$("share-modal").dataset.gpu.replace(/\W+/g, "-").toLowerCase()}.png`;
+  a.href = $("share-canvas").toDataURL("image/png");
+  a.click();
+  $("share-msg").textContent = "Image downloaded.";
+};
+$("share-copy").onclick = () => $("share-canvas").toBlob(async blob => {
+  try { await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]); $("share-msg").textContent = "Image copied. Paste it anywhere."; }
+  catch { $("share-msg").textContent = "This browser can't copy images; use Download image instead."; }
+});
+
+// compare
+function renderTray() {
+  const n = state.compare.size;
+  $("tray").classList.toggle("show", n > 0);
+  $("tray-text").innerHTML = `<b>${n}</b> selected${n < 2 ? ", pick one more" : ""}${n >= MAX_COMPARE ? ` (max ${MAX_COMPARE})` : ""}`;
+  $("tray-go").disabled = n < 2;
+}
+
+function openCompare() {
+  const ms = [...state.compare].map(findModel).filter(Boolean);
+  const vram = state.pred.gpu.vram_gb;
+  $("cmp-title").textContent = `Compare on ${state.pred.gpu.name}`;
+  // [label, render, score for highlighting the best, "max" | "min"]
+  const rows = [
+    ["300-word answer", m => `${answerTime(shownSpeed(m))}<small>${m.measured != null ? "measured" : "predicted"}, ${fmt(shownSpeed(m))} tokens/sec</small>`, shownSpeed, "max"],
+    ["Good for", m => m.tags.length ? m.tags.map(tagPill).join(" ") : "-"],
+    ["Verdict", m => verdict(shownSpeed(m)).label],
+    ["Starts answering", m => m.measured_ttft_ms != null ? `${(m.measured_ttft_ms / 1000).toFixed(2)}s` : `-<small>benchmark it to measure</small>`, m => m.measured_ttft_ms, "min"],
+    ["Memory needed", m => `${m.needs_gb} GB<small>of ${vram} GB</small>`, m => m.needs_gb, "min"],
+    ["Fits on GPU", m => m.fits ? "Yes" : "No, spills into RAM"],
+    ["Download size", m => m.size_gb ? `${m.size_gb} GB` : "-", m => m.size_gb || null, "min"],
+    ["Size", m => m.params_b ? `${m.params_b} billion parameters<small>bigger is usually smarter</small>` : "-"],
+    ["Runs faster than its size?", m => m.moe ? "Yes<small>only part of it works on each word</small>" : "No"],
+  ];
+  if (state.local.local) rows.push(["On this PC", m => isInstalled(m.model) ? "Installed" : "Not downloaded"]);
+  let html = `<thead><tr><th></th>${ms.map(m => `<td style="font-family:var(--body);font-size:16px">${esc(m.display || m.model)}<small>${esc(m.maker || "")}</small></td>`).join("")}</tr></thead><tbody>`;
+  for (const [label, show, score, dir] of rows) {
+    const vals = score ? ms.map(score) : [];
+    const valid = vals.filter(v => v != null);
+    const best = valid.length > 1 ? (dir === "max" ? Math.max(...valid) : Math.min(...valid)) : null;
+    html += `<tr><th>${label}</th>${ms.map((m, i) => `<td class="${best != null && vals[i] === best ? "best" : ""}">${show(m)}</td>`).join("")}</tr>`;
+  }
+  $("cmp").innerHTML = html + "</tbody>";
+  $("cmp-modal").classList.add("show");
+}
+$("cmp-race").onclick = () => {
+  race.lanes = [...state.compare].slice(0, 3);
+  closeModals();
+  renderLanes();
+  scrollTo({ top: 0, behavior: REDUCED_MOTION ? "auto" : "smooth" });
+  setTimeout(startRace, REDUCED_MOTION ? 0 : 450);
+};
+
+// events
+$("pred").addEventListener("click", async e => {
+  const b = e.target.closest("[data-act]");
+  if (!b) return;
+  const m = b.dataset.m;
+  switch (b.dataset.act) {
+    case "showall": state.showAll = true; renderPredictions(); break;
+    case "compare":
+      if (state.compare.has(m)) state.compare.delete(m);
+      else if (state.compare.size < MAX_COMPARE) state.compare.add(m);
+      renderPredictions(); break;
+    case "copy":
+      await navigator.clipboard.writeText(`ollama run ${m}`);
+      b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy command", 1200); break;
+    case "pull": startJob("pull", m); break;
+    case "benchmark": startJob("benchmark", m); break;
+    case "remove":
+      if (!confirm(`Delete ${m} from your PC? Your benchmark results stay.`)) break;
+      try { await post("/api/local/remove", { model: m }); delete state.jobs[m]; await refreshAll(); }
+      catch (err) { state.jobs[m] = { status: "error", message: err.message }; renderPredictions(); }
+      break;
+  }
+});
+document.querySelector(".sidebar").addEventListener("click", e => {
+  const b = e.target.closest(".chip");
+  if (!b) return;
+  if (b.dataset.sort) state.sort = b.dataset.sort;
+  else if (b.dataset.inst) state.installedOnly = !state.installedOnly;
+  else if (b.dataset.tag !== undefined) {
+    const t = b.dataset.tag;
+    if (!t) state.tags.clear();
+    else if (state.tags.has(t)) state.tags.delete(t);
+    else state.tags.add(t);
+  }
+  state.showAll = state.tags.size > 0 || !!state.query || state.installedOnly;
+  renderPredictions();
+});
+$("search").oninput = e => { state.query = e.target.value; state.showAll = !!state.query || state.tags.size > 0; renderPredictions(); };
+$("filter").addEventListener("click", e => { const b = e.target.closest("[data-g]"); if (b) { state.resultsFilter = b.dataset.g; renderResults(); } });
+$("top-share").onclick = () => {
+  const gpus = [...new Set(state.results.map(r => r.gpu))];
+  const match = gpus.find(g => state.gpu && g.toUpperCase().includes(state.gpu.toUpperCase()));
+  openShare(match || gpus[0]);
+};
+$("list").addEventListener("click", e => { const b = e.target.closest("[data-share]"); if (b) openShare(b.dataset.share); });
+$("tray-clear").onclick = () => { state.compare.clear(); renderPredictions(); };
+$("tray-go").onclick = openCompare;
+const closeModals = () => document.querySelectorAll(".modal").forEach(m => m.classList.remove("show"));
+document.querySelectorAll("[data-close]").forEach(b => b.onclick = closeModals);
+document.querySelectorAll(".modal").forEach(m => m.onclick = e => { if (e.target === m) closeModals(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModals(); });
+
+// startup
+async function refreshAll() {
+  [state.results, state.local, state.acc] = await Promise.all([api("/api/results"), api("/api/local"), api("/api/accuracy")]);
+  renderStatus(); renderResults();
+  if (state.gpu) {
+    state.pred = await api("/api/predictions?gpu=" + encodeURIComponent(state.gpu));
+    renderPredictions();
+    if (!race.running) renderLanes();
+  }
+}
+
+(async () => {
+  try {
+    [state.gpus, state.local, state.categories] = await Promise.all([
+      api("/api/gpus"), api("/api/local"),
+      api("/api/categories").catch(() => Object.keys(TAG_COLORS)),
+    ]);
+    const results = await api("/api/results");
+    // detected GPU > last picked > any benchmarked GPU
+    const benchmarked = state.gpus.find(g => results.some(r => r.gpu.toUpperCase().includes(g.name.toUpperCase())));
+    const saved = savedGpu.get();
+    state.gpu = state.local.gpu_catalog || (state.gpus.some(g => g.name === saved) ? saved : "") || benchmarked?.name || "";
+    renderGpuSelect();
+    await refreshAll();
+    await loadPredictions();
+    if (state.pred && !REDUCED_MOTION && !race.autoplayed) { race.autoplayed = true; setTimeout(startRace, 700); }
+  } catch (e) { showError(e); }
+})();
+</script>
+</body>
+</html>
