@@ -726,8 +726,10 @@ function groupFamilies(models) {
   }
   return [...fams].map(([key, members]) => {
     members.sort(byParams);
-    const chosen = members.find(m => m.model === state.famPick[key]) || defaultSize(members);
-    return { key, members, pick: chosen, label: familyLabel(members) };
+    // home decides group and order, so picking a size never moves the row
+    const home = defaultSize(members);
+    const chosen = members.find(m => m.model === state.famPick[key]) || home;
+    return { key, members, home, pick: chosen, label: familyLabel(members) };
   });
 }
 
@@ -794,9 +796,9 @@ function renderPredictions() {
   const fams = groupFamilies(visible);
   const rankScore = f => { const i = RECOMMENDED.indexOf(f.key); return i < 0 ? 100 : i; };
   const famSorts = {
-    capable: (a, b) => rankScore(a) - rankScore(b) || byParams(b.pick, a.pick),
-    fastest: (a, b) => shownSpeed(b.pick) - shownSpeed(a.pick),
-    smallest: (a, b) => (a.pick.size_gb || 0) - (b.pick.size_gb || 0),
+    capable: (a, b) => rankScore(a) - rankScore(b) || byParams(b.home, a.home),
+    fastest: (a, b) => shownSpeed(b.home) - shownSpeed(a.home),
+    smallest: (a, b) => (a.home.size_gb || 0) - (b.home.size_gb || 0),
   };
   fams.sort(famSorts[state.sort]);
 
@@ -809,7 +811,7 @@ function renderPredictions() {
   if (!fams.length) html += `<div class="card"><div class="nomatch">No model is good at all of those. Remove a use or clear the search.</div></div>`;
   const PAGE = 10;
   for (const [key, title] of GROUPS) {
-    const fs = fams.filter(f => groupOf(f.pick) === key);
+    const fs = fams.filter(f => groupOf(f.home) === key);
     if (!fs.length) continue;
     const collapsed = key === "toobig" && !state.showAll;
     const shown = filtering || state.expanded[key] ? fs : fs.slice(0, PAGE);
