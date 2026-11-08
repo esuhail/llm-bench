@@ -100,7 +100,11 @@ def kv_cache_gb(params_b: float, ctx: int) -> float:
 
 
 def memory_breakdown(model: dict, bits: float = BITS_PER_WEIGHT, ctx: int = DEFAULT_CTX) -> dict:
-    w = weights_gb(model["params_b"], bits)
+    if "size_gb" in model:
+        # real download size, for models where params * bits is misleading
+        w = model["size_gb"] * bits / BITS_PER_WEIGHT
+    else:
+        w = weights_gb(model["params_b"], bits)
     kv = kv_cache_gb(model["params_b"], ctx)
     return {"weights_gb": w, "kv_gb": kv, "runtime_gb": RUNTIME_GB, "total_gb": w + kv + RUNTIME_GB}
 
@@ -108,7 +112,10 @@ def memory_breakdown(model: dict, bits: float = BITS_PER_WEIGHT, ctx: int = DEFA
 def predict(gpu: dict, model: dict, eff: float, bits: float = BITS_PER_WEIGHT, ctx: int = DEFAULT_CTX) -> dict:
     mem = memory_breakdown(model, bits, ctx)
     need_gb = mem["total_gb"]
-    active_gb = weights_gb(model["active_params_b"], bits)
+    if "size_gb" in model:
+        active_gb = mem["weights_gb"] * model["active_params_b"] / model["params_b"]
+    else:
+        active_gb = weights_gb(model["active_params_b"], bits)
     fits = need_gb <= gpu["vram_gb"]
 
     if fits:

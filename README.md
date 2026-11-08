@@ -8,7 +8,7 @@ Local models are multi-gigabyte downloads, and it's hard to tell whether one wil
 
 ## Features
 
-- Detects your GPU and shows which of ~80 popular models fit in its memory
+- Detects your GPU and shows which of 100+ popular models fit in its memory
 - Estimated speed for every model, replaced by real measurements once you benchmark it
 - Download, benchmark and remove models from the browser
 - Filter by use case (programming, writing, images, etc.) and compare models side by side

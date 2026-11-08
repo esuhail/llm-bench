@@ -1,5 +1,5 @@
 {
- "_note": "Popular Ollama models at their default (~Q4) quantization. Sizes are estimated from parameter counts. Tags are hand-picked.",
+ "_note": "Popular Ollama models at their default quantization. size_gb is Ollama's download size where the estimate would be off; otherwise sizes are estimated from parameter counts. Tags are hand-picked.",
  "tags": [
   "Chat",
   "Coding",
@@ -983,6 +983,425 @@
    "desc": "Tiny image model",
    "maker": "Moondream",
    "display": "Moondream 1.8B"
+  },
+  {
+   "name": "qwen3.5:0.8b",
+   "params_b": 0.8,
+   "active_params_b": 0.8,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Tiny model with images, tools and thinking",
+   "maker": "Alibaba",
+   "display": "Qwen 3.5 0.8B",
+   "size_gb": 1.0
+  },
+  {
+   "name": "qwen3.5:2b",
+   "params_b": 2.0,
+   "active_params_b": 2.0,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Small model with images, tools and thinking",
+   "maker": "Alibaba",
+   "display": "Qwen 3.5 2B",
+   "size_gb": 2.7
+  },
+  {
+   "name": "qwen3.5:4b",
+   "params_b": 4.0,
+   "active_params_b": 4.0,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Handles images, tools and step-by-step thinking",
+   "maker": "Alibaba",
+   "display": "Qwen 3.5 4B",
+   "size_gb": 3.4
+  },
+  {
+   "name": "qwen3.5:27b",
+   "params_b": 27.0,
+   "active_params_b": 27.0,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Large dense model with images and thinking",
+   "maker": "Alibaba",
+   "display": "Qwen 3.5 27B",
+   "size_gb": 17.0
+  },
+  {
+   "name": "qwen3.5:35b",
+   "params_b": 35.0,
+   "active_params_b": 3.0,
+   "tags": [
+    "Chat",
+    "Reasoning",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Mixture of experts, fast for its size",
+   "maker": "Alibaba",
+   "display": "Qwen 3.5 35B",
+   "size_gb": 24.0
+  },
+  {
+   "name": "qwen3.6:27b",
+   "params_b": 27.0,
+   "active_params_b": 27.0,
+   "tags": [
+    "Chat",
+    "Coding",
+    "Reasoning",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Dense model, very strong at coding",
+   "maker": "Alibaba",
+   "display": "Qwen 3.6 27B",
+   "size_gb": 17.0
+  },
+  {
+   "name": "qwen3.6:35b-a3b",
+   "params_b": 35.0,
+   "active_params_b": 3.0,
+   "tags": [
+    "Chat",
+    "Coding",
+    "Reasoning",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Mixture of experts, fast for its size",
+   "maker": "Alibaba",
+   "display": "Qwen 3.6 35B",
+   "size_gb": 23.0
+  },
+  {
+   "name": "qwen3.8:27b",
+   "params_b": 27.3,
+   "active_params_b": 27.3,
+   "tags": [
+    "Chat",
+    "Coding",
+    "Reasoning",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Newest Qwen, strong at coding, reads images",
+   "maker": "Alibaba",
+   "display": "Qwen 3.8 27B",
+   "size_gb": 18.0
+  },
+  {
+   "name": "qwen3-vl:2b",
+   "params_b": 2.1,
+   "active_params_b": 2.1,
+   "tags": [
+    "Vision",
+    "Chat",
+    "Multilingual"
+   ],
+   "desc": "Small image model, good at reading text",
+   "maker": "Alibaba",
+   "display": "Qwen 3 VL 2B",
+   "size_gb": 1.9
+  },
+  {
+   "name": "qwen3-vl:4b",
+   "params_b": 4.4,
+   "active_params_b": 4.4,
+   "tags": [
+    "Vision",
+    "Chat",
+    "Multilingual"
+   ],
+   "desc": "Image model, good at documents",
+   "maker": "Alibaba",
+   "display": "Qwen 3 VL 4B",
+   "size_gb": 3.3
+  },
+  {
+   "name": "qwen3-vl:8b",
+   "params_b": 8.8,
+   "active_params_b": 8.8,
+   "tags": [
+    "Vision",
+    "Chat",
+    "Reasoning",
+    "Multilingual"
+   ],
+   "desc": "Image model, good at documents and charts",
+   "maker": "Alibaba",
+   "display": "Qwen 3 VL 8B",
+   "size_gb": 6.1
+  },
+  {
+   "name": "qwen3-vl:30b",
+   "params_b": 30.5,
+   "active_params_b": 3.3,
+   "tags": [
+    "Vision",
+    "Chat",
+    "Reasoning",
+    "Multilingual"
+   ],
+   "desc": "Mixture of experts image model",
+   "maker": "Alibaba",
+   "display": "Qwen 3 VL 30B",
+   "size_gb": 20.0
+  },
+  {
+   "name": "qwen3-vl:32b",
+   "params_b": 33.0,
+   "active_params_b": 33.0,
+   "tags": [
+    "Vision",
+    "Chat",
+    "Reasoning",
+    "Multilingual"
+   ],
+   "desc": "Largest dense Qwen image model",
+   "maker": "Alibaba",
+   "display": "Qwen 3 VL 32B",
+   "size_gb": 21.0
+  },
+  {
+   "name": "gemma4:e2b",
+   "params_b": 5.1,
+   "active_params_b": 2.3,
+   "tags": [
+    "Chat",
+    "Vision",
+    "Multilingual"
+   ],
+   "desc": "Built for phones and laptops, also hears audio",
+   "maker": "Google",
+   "display": "Gemma 4 E2B",
+   "size_gb": 7.2
+  },
+  {
+   "name": "gemma4:e4b",
+   "params_b": 8.0,
+   "active_params_b": 4.5,
+   "tags": [
+    "Chat",
+    "Vision",
+    "Multilingual",
+    "Writing"
+   ],
+   "desc": "Good everyday model, also hears audio",
+   "maker": "Google",
+   "display": "Gemma 4 E4B",
+   "size_gb": 9.6
+  },
+  {
+   "name": "gemma4:12b",
+   "params_b": 12.0,
+   "active_params_b": 12.0,
+   "tags": [
+    "Chat",
+    "Vision",
+    "Multilingual",
+    "Writing",
+    "Reasoning"
+   ],
+   "desc": "Mid-size model with images and audio",
+   "maker": "Google",
+   "display": "Gemma 4 12B",
+   "size_gb": 7.6
+  },
+  {
+   "name": "gemma4:26b",
+   "params_b": 25.2,
+   "active_params_b": 3.8,
+   "tags": [
+    "Chat",
+    "Vision",
+    "Multilingual",
+    "Writing",
+    "Reasoning"
+   ],
+   "desc": "Mixture of experts, fast for its size",
+   "maker": "Google",
+   "display": "Gemma 4 26B",
+   "size_gb": 18.0
+  },
+  {
+   "name": "gemma4:31b",
+   "params_b": 30.7,
+   "active_params_b": 30.7,
+   "tags": [
+    "Chat",
+    "Vision",
+    "Multilingual",
+    "Writing",
+    "Reasoning"
+   ],
+   "desc": "Google's largest open model",
+   "maker": "Google",
+   "display": "Gemma 4 31B",
+   "size_gb": 20.0
+  },
+  {
+   "name": "gemma3:270m",
+   "params_b": 0.27,
+   "active_params_b": 0.27,
+   "tags": [
+    "Chat"
+   ],
+   "desc": "Extremely small, for simple tasks",
+   "maker": "Google",
+   "display": "Gemma 3 270M",
+   "size_gb": 0.3
+  },
+  {
+   "name": "ministral-3:3b",
+   "params_b": 3.8,
+   "active_params_b": 3.8,
+   "tags": [
+    "Chat",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Small model that reads images",
+   "maker": "Mistral AI",
+   "display": "Ministral 3 3B",
+   "size_gb": 3.0
+  },
+  {
+   "name": "ministral-3:8b",
+   "params_b": 8.8,
+   "active_params_b": 8.8,
+   "tags": [
+    "Chat",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Reads images, strong for its size",
+   "maker": "Mistral AI",
+   "display": "Ministral 3 8B",
+   "size_gb": 6.0
+  },
+  {
+   "name": "ministral-3:14b",
+   "params_b": 14.0,
+   "active_params_b": 14.0,
+   "tags": [
+    "Chat",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Largest Ministral, reads images",
+   "maker": "Mistral AI",
+   "display": "Ministral 3 14B"
+  },
+  {
+   "name": "magistral:24b",
+   "params_b": 23.6,
+   "active_params_b": 23.6,
+   "tags": [
+    "Reasoning",
+    "Writing",
+    "Multilingual"
+   ],
+   "desc": "Reasoning model, also good at creative writing",
+   "maker": "Mistral AI",
+   "display": "Magistral 24B",
+   "size_gb": 14.0
+  },
+  {
+   "name": "granite4:micro",
+   "params_b": 3.4,
+   "active_params_b": 3.4,
+   "tags": [
+    "Chat",
+    "Tool use"
+   ],
+   "desc": "Small, fast business model",
+   "maker": "IBM",
+   "display": "Granite 4 Micro",
+   "size_gb": 2.1
+  },
+  {
+   "name": "granite4:tiny-h",
+   "params_b": 7.0,
+   "active_params_b": 1.0,
+   "tags": [
+    "Chat",
+    "Tool use"
+   ],
+   "desc": "Very fast mixture of experts",
+   "maker": "IBM",
+   "display": "Granite 4 Tiny",
+   "size_gb": 4.2
+  },
+  {
+   "name": "granite4:small-h",
+   "params_b": 32.0,
+   "active_params_b": 9.0,
+   "tags": [
+    "Chat",
+    "Tool use"
+   ],
+   "desc": "Mixture of experts for documents and tools",
+   "maker": "IBM",
+   "display": "Granite 4 Small",
+   "size_gb": 19.0
+  },
+  {
+   "name": "glm-4.7-flash:latest",
+   "params_b": 31.2,
+   "active_params_b": 3.6,
+   "tags": [
+    "Coding",
+    "Reasoning",
+    "Chat",
+    "Tool use"
+   ],
+   "desc": "Mixture of experts built for coding agents",
+   "maker": "Z.ai",
+   "display": "GLM-4.7 Flash",
+   "size_gb": 19.0
+  },
+  {
+   "name": "llama4:scout",
+   "params_b": 109.0,
+   "active_params_b": 17.0,
+   "tags": [
+    "Chat",
+    "Vision",
+    "Multilingual",
+    "Tool use"
+   ],
+   "desc": "Huge mixture of experts with image input",
+   "maker": "Meta",
+   "display": "Llama 4 Scout"
   }
  ]
 }
