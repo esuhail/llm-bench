@@ -1,3 +1,4 @@
+[![tests](https://github.com/esuhail/llm-bench/actions/workflows/tests.yml/badge.svg)](https://github.com/esuhail/llm-bench/actions/workflows/tests.yml)
 # LLM Bench
 
 Check which local AI models your GPU can run, and how fast, before downloading them.
